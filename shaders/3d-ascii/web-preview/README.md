@@ -30,7 +30,8 @@ The camera orbit is separate from object animation. Turn off **Spin object** to 
 - Scene shape: sculpture, sphere, torus, or box.
 - Color mode: monochrome, terminal green, normal RGB, or full color.
 - Glyph density: classic, soft, or bold.
-- Character size, exposure, contrast, and edge boost: adjustable sliders.
+- Character size and character gap: adjustable sliders, with a tighter default gap.
+- Exposure, contrast, and edge boost: tuned to a softer default image.
 - Invert density, pause/resume animation, and reset all settings.
 
 The preview uses a larger responsive render stage and caps the device pixel ratio to keep the workload reasonable on phones. It uses RGBA8 render targets and WebGL 2 multiple render targets for broad mobile compatibility.
