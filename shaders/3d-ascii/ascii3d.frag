@@ -11,6 +11,7 @@ uniform float uExposure;
 uniform float uContrast;
 uniform float uEdgeBoost;
 uniform float uGlyphSpacing;
+uniform float uGlyphBlur;
 uniform int uInvert;
 uniform vec3 uBackgroundColor;
 
@@ -36,6 +37,30 @@ int glyphPixel(int glyph, ivec2 position) {
 
     int rowBits = FONT_ROWS[glyph * 7 + position.y];
     return (rowBits >> (4 - position.x)) & 1;
+}
+
+float glyphCoverage(int glyph, vec2 pixelPosition, float blurAmount) {
+    float center = float(glyphPixel(glyph, ivec2(floor(pixelPosition))));
+    float radius = clamp(blurAmount, 0.0, 1.5);
+    if (radius <= 0.001) {
+        return center;
+    }
+
+    vec2 horizontal = vec2(radius, 0.0);
+    vec2 vertical = vec2(0.0, radius);
+    vec2 diagonal = vec2(radius * 0.70710678);
+
+    float coverage = center * 0.36;
+    coverage += float(glyphPixel(glyph, ivec2(floor(pixelPosition + horizontal)))) * 0.10;
+    coverage += float(glyphPixel(glyph, ivec2(floor(pixelPosition - horizontal)))) * 0.10;
+    coverage += float(glyphPixel(glyph, ivec2(floor(pixelPosition + vertical)))) * 0.10;
+    coverage += float(glyphPixel(glyph, ivec2(floor(pixelPosition - vertical)))) * 0.10;
+    coverage += float(glyphPixel(glyph, ivec2(floor(pixelPosition + diagonal)))) * 0.06;
+    coverage += float(glyphPixel(glyph, ivec2(floor(pixelPosition - diagonal)))) * 0.06;
+    coverage += float(glyphPixel(glyph, ivec2(floor(pixelPosition + vec2(diagonal.x, -diagonal.y))))) * 0.06;
+    coverage += float(glyphPixel(glyph, ivec2(floor(pixelPosition + vec2(-diagonal.x, diagonal.y))))) * 0.06;
+
+    return clamp(coverage, 0.0, 1.0);
 }
 
 void main() {
@@ -67,7 +92,7 @@ void main() {
         return;
     }
 
-    ivec2 glyphCoordinate = ivec2(floor(fontPosition * vec2(5.0, 7.0)));
+    vec2 glyphPixelPosition = fontPosition * vec2(5.0, 7.0);
 
     vec3 viewNormal = normalize(normalSample.rgb * 2.0 - 1.0);
     float luminance = dot(sceneSample.rgb, vec3(0.2126, 0.7152, 0.0722));
@@ -91,7 +116,8 @@ void main() {
     }
 
     int glyph = clamp(int(floor(density * 9.999)), 0, 9);
-    if (glyphPixel(glyph, glyphCoordinate) == 0) {
+    float glyphAlpha = glyphCoverage(glyph, glyphPixelPosition, uGlyphBlur);
+    if (glyphAlpha <= 0.001) {
         fragColor = vec4(background, 1.0);
         return;
     }
@@ -107,5 +133,5 @@ void main() {
         glyphColor = vec3(1.0);
     }
 
-    fragColor = vec4(glyphColor, 1.0);
+    fragColor = vec4(mix(background, glyphColor, glyphAlpha), 1.0);
 }
