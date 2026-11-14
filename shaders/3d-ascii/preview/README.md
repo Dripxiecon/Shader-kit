@@ -8,11 +8,15 @@ The preview lives in its own folder so its build files and dependencies stay sep
 
 - CMake 3.21 or newer.
 - A C++17 compiler.
-- Python 3.8 or newer (used by GLAD to generate its OpenGL loader).
+- Python 3.8 or newer with Jinja2 (used by GLAD to generate its OpenGL loader).
 - An OpenGL 3.3 Core-capable graphics driver.
 - An internet connection during the first CMake configure, so CMake can fetch GLFW 3.4 and GLAD 2.0.8.
 
 GLFW and GLAD are fetched into the build directory. Their source files are not copied into the shader kit.
+
+Install GLAD's Python template dependency before configuring:
+
+    python -m pip install Jinja2
 
 ## Build
 
