@@ -28,6 +28,19 @@ if(NOT glad_POPULATED)
 endif()
 add_subdirectory("${glad_SOURCE_DIR}/cmake" "${CMAKE_CURRENT_BINARY_DIR}/glad_cmake")
 
+find_package(Python 3.8 REQUIRED COMPONENTS Interpreter)
+execute_process(
+    COMMAND "${Python_EXECUTABLE}" -c "import jinja2"
+    RESULT_VARIABLE ASCII3D_JINJA2_STATUS
+    OUTPUT_QUIET
+    ERROR_QUIET
+)
+if(NOT ASCII3D_JINJA2_STATUS EQUAL 0)
+    message(FATAL_ERROR
+        "GLAD needs Jinja2. Install it with: ${Python_EXECUTABLE} -m pip install Jinja2"
+    )
+endif()
+
 glad_add_library(glad_gl_core_33 REPRODUCIBLE LOADER API gl:core=3.3)
 
 find_package(OpenGL REQUIRED)
