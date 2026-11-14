@@ -14,15 +14,26 @@ The preview is published with GitHub Pages. The deployment workflow publishes on
 
 If WebGL 2 is unavailable, update Chrome and check that hardware acceleration is enabled. The phone's GPU must support WebGL 2.
 
-## Controls
+## Camera controls
+
+- Drag with one finger on Android, or click and drag with a mouse, to orbit around the object.
+- Pinch with two fingers to zoom on a touchscreen.
+- Scroll the mouse wheel to zoom on desktop.
+- Use the camera-distance slider for precise zoom.
+- Double-tap/double-click or choose **Reset camera** to return to the starting view.
+- Choose **Full screen** to expand the render to the entire display.
+
+The camera orbit is separate from object animation. Turn off **Spin object** to keep the model still while you inspect it from different angles.
+
+## Render controls
 
 - Scene shape: sculpture, sphere, torus, or box.
 - Color mode: monochrome, terminal green, normal RGB, or full color.
 - Glyph density: classic, soft, or bold.
 - Character size, exposure, contrast, and edge boost: adjustable sliders.
-- Invert density, pause/resume animation, and reset settings.
+- Invert density, pause/resume animation, and reset all settings.
 
-The renderer caps the device pixel ratio to keep the workload reasonable on phones. It uses RGBA8 render targets and WebGL 2 multiple render targets for broad mobile compatibility.
+The preview uses a larger responsive render stage and caps the device pixel ratio to keep the workload reasonable on phones. It uses RGBA8 render targets and WebGL 2 multiple render targets for broad mobile compatibility.
 
 ## Shader source
 
