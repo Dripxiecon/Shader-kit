@@ -1,16 +1,14 @@
 # Android / Browser Preview
 
-This is a mobile-friendly WebGL 2 preview for the 3D ASCII shader. It runs in a modern Android browser (such as current Chrome) and does not require a native app, CMake, or a desktop computer.
+This is a mobile-friendly WebGL 2 preview for the 3D Symbol Shader. It runs in a modern Android browser such as current Chrome and does not require a native app, CMake, or a desktop computer.
 
 ## Open on Android
-
-Open the published preview:
 
 https://dripxiecon.github.io/Shader-kit/web-preview/
 
 The page loads the shader source files from the same published site, so it does not need a third-party shader proxy.
 
-The preview is published with GitHub Pages. The deployment workflow publishes only the 3D ASCII shader folder, and new commits to that folder automatically redeploy the page.
+The preview is published with GitHub Pages. New commits to this shader folder automatically redeploy the page.
 
 If WebGL 2 is unavailable, update Chrome and check that hardware acceleration is enabled. The phone's GPU must support WebGL 2.
 
@@ -23,19 +21,23 @@ If WebGL 2 is unavailable, update Chrome and check that hardware acceleration is
 - Double-tap/double-click or choose **Reset camera** to return to the starting view.
 - Choose **Full screen** to expand the render to the entire display.
 
-The camera orbit is separate from object animation. Turn off **Spin object** to keep the model still while you inspect it from different angles.
+The camera orbit is separate from object animation. Turn off **Spin object** to keep the model still while you inspect it.
 
 ## Render controls
 
 - Scene shape: sculpture, sphere, torus, or box.
 - Color mode: monochrome, terminal green, normal RGB, or full color.
-- Glyph density: classic, soft, or bold.
-- Character size and character gap: adjustable sliders, with a tighter default gap.
-- ASCII blur: softens character bitmap edges only; it does not blur the 3D scene or camera view. Set it to 0 for crisp characters.
-- Exposure, contrast, and edge boost: tuned to a softer default image.
+- Tone response: balanced, soft, or bold.
+- Match quality: balanced 2×2 sampling or detailed 3×3 sampling. Use 2×2 as the phone-friendly default; 3×3 compares more scene detail at a higher GPU cost.
+- Symbol variety: gently varies near-equal glyph matches without changing the scene.
+- Character size and symbol gap: adjustable sliders.
+- Symbol edge softness: softens the symbol bitmap only; it does not blur the 3D scene or camera view. Set it to 0 for crisp symbols.
+- Exposure, contrast, and edge boost adjust how scene lighting maps to symbols.
 - Invert density, pause/resume animation, and reset all settings.
 
-The preview uses a larger responsive render stage and caps the device pixel ratio to keep the workload reasonable on phones. It uses RGBA8 render targets and WebGL 2 multiple render targets for broad mobile compatibility.
+The built-in atlas contains all 95 printable ASCII characters: letters, numbers, punctuation, operators, brackets, and symbols. It is not a full Unicode font; additional Unicode packs can be added later.
+
+The preview caps device pixel ratio and uses RGBA8 render targets for broad mobile compatibility.
 
 ## Shader source
 
@@ -43,6 +45,7 @@ The page fetches these source files at runtime:
 
 - ../fullscreen.vert
 - ../ascii3d_scene.frag
+- ../symbol_select.frag
 - ../ascii3d.frag
 
 It converts the GLSL 330 version header to GLSL ES 3.00 and adds the required precision declarations. The shader source remains in the main shader folder, so there are no duplicated shader copies to maintain.
