@@ -7,6 +7,7 @@ uniform sampler2D uSceneNormal;
 uniform int uSampleScale;
 uniform int uColorMode;
 uniform int uGlyphSet;
+uniform int uCharacterMode;
 uniform float uExposure;
 uniform float uContrast;
 uniform float uEdgeBoost;
@@ -67,6 +68,14 @@ uint variationHash(ivec2 cell, int glyph) {
     value *= 2246822519u;
     value ^= value >> 13;
     return value;
+}
+
+bool isLetter(int glyph) {
+    return (glyph >= 33 && glyph <= 58) || (glyph >= 65 && glyph <= 90);
+}
+
+bool isDigit(int glyph) {
+    return glyph >= 16 && glyph <= 25;
 }
 
 void main() {
@@ -138,6 +147,9 @@ void main() {
     float variation = clamp(uSymbolVariation, 0.0, 1.0);
 
     for (int glyph = 0; glyph < 95; ++glyph) {
+        if (uCharacterMode == 1 && !isLetter(glyph)) continue;
+        if (uCharacterMode == 2 && !isDigit(glyph)) continue;
+        if (uCharacterMode == 3 && (isLetter(glyph) || isDigit(glyph) || glyph == 0)) continue;
         float score = 0.0;
 
         for (int y = 0; y < 3; ++y) {
