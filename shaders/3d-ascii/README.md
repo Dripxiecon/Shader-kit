@@ -1,6 +1,6 @@
 # 3D Symbol Shader
 
-A three-pass GLSL 3.30 Core renderer that converts lit 3D surfaces into matching symbols. The built-in 8×12 font contains all 95 printable ASCII characters: uppercase and lowercase letters, digits, punctuation, brackets, operators, and symbols.
+A three-pass GLSL 3.30 Core renderer that converts lit 3D surfaces into matching symbols. The built-in 8×12 font contains all 95 visible printable ASCII characters: uppercase and lowercase letters, digits, punctuation, brackets, operators, and symbols.
 
 ## Files
 
@@ -34,7 +34,7 @@ The scene pass stores camera-space normals encoded from `[-1, 1]` into `[0, 1]`.
 
 ## Built-in symbol library
 
-The shader contains 95 printable ASCII glyphs, from code point 32 (space) through 126 (tilde). This includes:
+The shader contains the 95 visible printable ASCII glyphs, from code point 32 (space) through 126 (tilde). This includes:
 
 - Uppercase and lowercase A–Z.
 - Digits 0–9.
@@ -44,7 +44,7 @@ Glyphs use an 8×12 bitmap atlas. The matcher compares the actual per-cell light
 
 The raster glyph data is derived from DejaVu Sans Mono Bold. Its license and notices are included in [FONT-LICENSE.txt](FONT-LICENSE.txt).
 
-This is the complete printable ASCII set, not every Unicode character. Unicode symbol packs can be added later by extending the font atlas and coverage data.
+Count clarification: the visible ASCII range is 95 code points (32–126). Python's `string.printable` contains 100 characters because it also includes five non-visible whitespace controls: tab, line feed, carriage return, vertical tab, and form feed. Those controls are layout characters, not drawable glyphs. Python's Unicode `str.isprintable()` count (such as 143,680 in some Python/Unicode versions) depends on the Unicode database version and is far too large for a hard-coded GLSL array. The next expansion should use a texture-backed Unicode font atlas with glyph lookup and fallback, so large symbol sets can be streamed without compiling every glyph into the shader.
 
 ## Scene-pass uniforms
 
@@ -84,7 +84,7 @@ The scene target must be exactly `gridWidth × uSampleScale` by `gridHeight × u
 | `uSymbolVariation` | `0.35` | Stable variation between near-equal glyph matches |
 | `uInvert` | `0` | Set to 1 to invert symbol density |
 
-The selection pass runs once per character cell, not once per output pixel. It evaluates all 95 printable glyphs using the 2×2 or 3×3 scene samples.
+The selection pass runs once per character cell, not once per output pixel. It evaluates all 95 visible printable ASCII glyphs using the 2×2 or 3×3 scene samples.
 
 ## Final-pass uniforms
 
