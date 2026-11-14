@@ -31,6 +31,7 @@ The camera orbit is separate from object animation. Turn off **Spin object** to 
 - Color mode: monochrome, terminal green, normal RGB, or full color.
 - Glyph density: classic, soft, or bold.
 - Character size and character gap: adjustable sliders, with a tighter default gap.
+- ASCII blur: softens character bitmap edges only; it does not blur the 3D scene or camera view. Set it to 0 for crisp characters.
 - Exposure, contrast, and edge boost: tuned to a softer default image.
 - Invert density, pause/resume animation, and reset all settings.
 
