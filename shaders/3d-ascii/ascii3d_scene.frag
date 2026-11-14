@@ -8,6 +8,9 @@ uniform vec2 uGridResolution;
 uniform float uCellSize;
 uniform float uTime;
 uniform float uCameraDistance;
+uniform float uCameraYaw;
+uniform float uCameraPitch;
+uniform vec3 uCameraTarget;
 uniform float uRotationSpeed;
 uniform int uAnimate;
 uniform int uShape;
@@ -140,8 +143,15 @@ void main() {
     vec2 screenPosition = pixelOffset / safeOutputResolution.y;
 
     float cameraDistance = uCameraDistance > 0.1 ? uCameraDistance : 5.2;
-    vec3 rayOrigin = vec3(0.0, 0.10, cameraDistance);
-    vec3 cameraTarget = vec3(0.0, -0.10, 0.0);
+    float cameraYaw = uCameraYaw;
+    float cameraPitch = clamp(uCameraPitch, -1.45, 1.45);
+    vec3 cameraTarget = uCameraTarget;
+    vec3 cameraOffset = vec3(
+        sin(cameraYaw) * cos(cameraPitch),
+        sin(cameraPitch),
+        cos(cameraYaw) * cos(cameraPitch)
+    ) * cameraDistance;
+    vec3 rayOrigin = cameraTarget + cameraOffset;
 
     vec3 cameraForward = normalize(cameraTarget - rayOrigin);
     vec3 cameraRight = normalize(cross(cameraForward, vec3(0.0, 1.0, 0.0)));
