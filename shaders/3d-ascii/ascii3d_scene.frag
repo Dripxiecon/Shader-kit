@@ -6,6 +6,7 @@ layout(location = 1) out vec4 outSceneNormal;
 uniform vec2 uOutputResolution;
 uniform vec2 uGridResolution;
 uniform float uCellSize;
+uniform int uSampleScale;
 uniform float uTime;
 uniform float uCameraDistance;
 uniform float uCameraYaw;
@@ -139,7 +140,8 @@ void main() {
     float cellWidth = uCellSize > 0.0 ? uCellSize : 12.0;
     vec2 cellSizePixels = vec2(cellWidth, cellWidth * 1.4);
 
-    vec2 pixelOffset = (gl_FragCoord.xy - 0.5 * safeGridResolution) * cellSizePixels;
+    float sampleScale = float(max(uSampleScale, 1));
+    vec2 pixelOffset = (gl_FragCoord.xy - 0.5 * safeGridResolution) * cellSizePixels / sampleScale;
     vec2 screenPosition = pixelOffset / safeOutputResolution.y;
 
     float cameraDistance = uCameraDistance > 0.1 ? uCameraDistance : 5.2;
