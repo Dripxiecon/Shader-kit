@@ -95,6 +95,20 @@ The vertex shader uses \`gl_VertexID\`, so no vertex buffer is required. Set the
 
 The raymarcher runs once per character cell, rather than once per output pixel. Start with a cell width of 10–16 pixels. Larger cells reduce raymarch cost and create a chunkier terminal look.
 
+## Android browser preview
+
+A WebGL 2 preview is available for Android phones and modern desktop browsers.
+
+[Open 3D ASCII Lab](https://dripxiecon.github.io/Shader-kit/web-preview/)
+
+The first time, enable GitHub Pages for this repository:
+
+1. Open Settings → Pages.
+2. Set Build and deployment → Source to GitHub Actions.
+3. Save and wait for the Deploy 3D ASCII Web Preview workflow in the Actions tab to finish.
+
+The preview is stored in [web-preview/](web-preview/README.md). It loads the original shader files and converts their GLSL 330 headers to GLSL ES 3.00 at runtime.
+
 ## Interactive preview
 
 A desktop OpenGL preview app is included in [preview/](preview/README.md). It loads these shader files directly, builds the two-pass render pipeline, and provides keyboard controls for live tweaking.
