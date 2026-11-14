@@ -64,7 +64,7 @@ The window title shows the active shape, color mode, tone response, matching qua
 1. The app calculates a character grid from the current window size and cell width.
 2. It creates the two-attachment scene framebuffer at character-grid dimensions multiplied by the selected 2×2 or 3×3 sample scale.
 3. The scene shader writes lit color plus encoded camera-space normals and a hit mask for every subcell sample.
-4. The symbol-selection pass compares each cell's samples against all 95 printable ASCII glyphs and stores the selected glyph index plus display color.
+4. The symbol-selection pass compares each cell's samples against all 95 visible printable ASCII glyphs and stores the selected glyph index plus display color.
 5. The final pass draws the selected 8×12 bitmap glyphs at full window resolution.
 
 The scene and symbol textures use nearest-neighbor filtering. Resizing the window or changing matching quality automatically recreates the render targets.
