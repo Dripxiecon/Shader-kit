@@ -10,6 +10,7 @@ uniform int uGlyphSet;
 uniform float uExposure;
 uniform float uContrast;
 uniform float uEdgeBoost;
+uniform float uGlyphSpacing;
 uniform int uInvert;
 uniform vec3 uBackgroundColor;
 
@@ -55,7 +56,10 @@ void main() {
     }
 
     vec2 localPosition = fract(gl_FragCoord.xy / cellSizePixels);
-    vec2 fontPosition = (localPosition - vec2(0.08, 0.04)) / vec2(0.84, 0.92);
+    float glyphGap = clamp(uGlyphSpacing, 0.0, 0.16);
+    vec2 glyphMargin = vec2(glyphGap * 0.5, glyphGap * 0.35);
+    vec2 glyphScale = vec2(1.0 - glyphGap, 1.0 - glyphGap * 0.7);
+    vec2 fontPosition = (localPosition - glyphMargin) / glyphScale;
 
     if (fontPosition.x < 0.0 || fontPosition.x >= 1.0 ||
         fontPosition.y < 0.0 || fontPosition.y >= 1.0) {
