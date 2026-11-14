@@ -146,7 +146,7 @@ void main() {
                 if (x >= sampleScale) break;
 
                 int sampleIndex = y * 3 + x;
-                int coverageIndex = y * sampleScale + x;
+                int coverageIndex = (sampleScale - 1 - y) * sampleScale + x;
                 float difference = sampleDensity[sampleIndex]
                     - candidateCoverage(glyph, coverageIndex, sampleScale);
                 score += difference * difference;
