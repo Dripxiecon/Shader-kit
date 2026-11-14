@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080d14">
+<meta name="description" content="Interactive 3D ASCII shader preview powered by WebGL 2.">
+<title>3D ASCII Lab</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #080d14;
+  --line: rgba(137, 177, 190, .18);
+  --text: #edf8f5;
+  --muted: #91a8ad;
+  --mint: #72f5c5;
+  --cyan: #6adcf4;
+  --orange: #ffb36b;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(ellipse at 16% 0%, rgba(32, 120, 115, .2), transparent 42rem),
+    radial-gradient(ellipse at 100% 30%, rgba(40, 83, 130, .18), transparent 36rem),
+    var(--bg);
+}
+button, input, select { font: inherit; }
+.shell {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 2px 16px;
+}
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(114,245,197,.4);
+  border-radius: 14px;
+  color: var(--mint);
+  background: linear-gradient(145deg, rgba(114,245,197,.15), rgba(106,220,244,.05));
+  box-shadow: 0 0 26px rgba(114,245,197,.09), inset 0 0 18px rgba(114,245,197,.06);
+  font-size: 20px;
+}
+h1 { margin: 0; font-size: clamp(19px, 4vw, 25px); letter-spacing: -.04em; }
+.sub { margin-top: 3px; color: var(--muted); font-size: 12px; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: var(--muted);
+  background: rgba(12, 21, 30, .72);
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 10px currentColor; }
+.pill.ready .dot { background: var(--mint); }
+.stage {
+  position: relative;
+  overflow: hidden;
+  min-height: 280px;
+  height: min(54vh, 590px);
+  border: 1px solid rgba(114,245,197,.22);
+  border-radius: 24px;
+  background:
+    linear-gradient(rgba(114,245,197,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(114,245,197,.025) 1px, transparent 1px),
+    #020609;
+  background-size: 28px 28px;
+  box-shadow: 0 22px 70px rgba(0,0,0,.34), inset 0 0 45px rgba(27, 125, 105, .08);
+}
+canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+.stage-label {
+  position: absolute;
+  top: 13px;
+  left: 14px;
+  padding: 6px 9px;
+  border: 1px solid rgba(114,245,197,.17);
+  border-radius: 8px;
+  color: rgba(185,255,229,.75);
+  background: rgba(3, 12, 14, .65);
+  font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .13em;
+  pointer-events: none;
+}
+.stage-hint {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  color: rgba(180,208,207,.55);
+  font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: none;
+}
+.panel {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(20,34,47,.96), rgba(11,19,28,.96));
+  box-shadow: 0 18px 55px rgba(0,0,0,.22);
+}
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.panel-title { font-size: 13px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+.panel-note { color: var(--muted); font-size: 11px; }
+.controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.control { min-width: 0; }
+label, .label {
+  display: block;
+  margin: 0 0 7px;
+  color: #b6c9ca;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .035em;
+}
+select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 32px 0 11px;
+  border: 1px solid rgba(137,177,190,.2);
+  border-radius: 11px;
+  outline: none;
+  color: var(--text);
+  background: #0b151f;
+}
+select:focus, button:focus-visible, input:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.range-row { display: flex; align-items: center; gap: 8px; }
+input[type="range"] { width: 100%; min-width: 0; accent-color: var(--mint); }
+.value {
+  min-width: 39px;
+  color: var(--mint);
+  text-align: right;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-top: 15px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.action {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid rgba(137,177,190,.22);
+  border-radius: 11px;
+  color: var(--text);
+  background: #101d29;
+  cursor: pointer;
+}
+.action.primary {
+  border-color: rgba(114,245,197,.4);
+  color: #07140f;
+  background: linear-gradient(110deg, var(--mint), #a4f5d8);
+  font-weight: 800;
+}
+.action[aria-pressed="true"] {
+  border-color: rgba(255,179,107,.5);
+  color: #ffd1a4;
+  background: rgba(255,179,107,.1);
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: #c5d4d3;
+  font-size: 12px;
+}
+.toggle input { accent-color: var(--mint); width: 16px; height: 16px; }
+.status { min-height: 18px; margin-top: 12px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.status.error { color: #ffb18c; }
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 3px 0;
+  color: #71878c;
+  font-size: 10px;
+}
+a { color: var(--cyan); text-decoration: none; }
+a:hover { text-decoration: underline; }
+@media (max-width: 640px) {
+  .shell { padding-left: 12px; padding-right: 12px; }
+  .header { margin-bottom: 12px; }
+  .pill { padding: 6px 8px; font-size: 9px; }
+  .stage { height: 43vh; min-height: 260px; max-height: 440px; border-radius: 18px; }
+  .panel { padding: 13px; border-radius: 16px; }
+  .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
+  .panel-note { display: none; }
+  .footer { flex-direction: column; gap: 4px; }
+}
+@media (max-width: 360px) {
+  .brand { gap: 8px; }
+  .mark { width: 36px; height: 36px; border-radius: 11px; }
+  .sub { font-size: 10px; }
+}
+</style>
+</head>
+<body>
+<main class="shell">
+  <header class="header">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">✳</div>
+      <div>
+        <h1>3D ASCII Lab</h1>
+        <div class="sub">Live shader playground · WebGL 2 · Mobile ready</div>
+      </div>
+    </div>
+    <div class="pill" id="statusPill"><span class="dot"></span><span id="statusLabel">Starting</span></div>
+  </header>
+
+  <section class="stage" aria-label="3D ASCII shader output">
+    <canvas id="view" aria-label="Animated 3D ASCII render"></canvas>
+    <div class="stage-label">LIVE RENDER / GLSL ES 3.00</div>
+    <div class="stage-hint">SCROLL DOWN FOR CONTROLS</div>
+  </section>
+
+  <section class="panel" aria-label="Shader settings">
+    <div class="panel-head">
+      <div class="panel-title">Render controls</div>
+      <div class="panel-note">Changes apply instantly</div>
+    </div>
+
+    <div class="controls">
+      <div class="control">
+        <label for="shape">Scene shape</label>
+        <select id="shape">
+          <option value="0">Sculpture</option>
+          <option value="1">Sphere</option>
+          <option value="2">Torus</option>
+          <option value="3">Box</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="colorMode">Color mode</label>
+        <select id="colorMode">
+          <option value="0">Monochrome</option>
+          <option value="1">Terminal green</option>
+          <option value="2">Normal RGB</option>
+          <option value="3" selected>Full color</option>
+        </select>
+      </div>
+      <div class="control">
+        <label for="glyphSet">Glyph density</label>
+        <select id="glyphSet">
+          <option value="0">Classic</option>
+          <option value="1">Soft</option>
+          <option value="2">Bold</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <label for="cellSize">Character size</label>
+        <div class="range-row">
+          <input id="cellSize" type="range" min="8" max="30" step="1" value="14">
+          <output class="value" id="cellSizeValue">14 px</output>
+        </div>
+      </div>
+      <div class="control">
+        <label for="exposure">Exposure</label>
+        <div class="range-row">
+          <input id="exposure" type="range" min="0.2" max="2.8" step="0.05" value="1.15">
+          <output class="value" id="exposureValue">1.15</output>
+        </div>
+      </div>
+      <div class="control">
+        <label for="contrast">Contrast</label>
+        <div class="range-row">
+          <input id="contrast" type="range" min="0.2" max="2.5" step="0.05" value="1">
+          <output class="value" id="contrastValue">1.00</output>
+        </div>
+      </div>
+      <div class="control">
+        <label for="edgeBoost">Edge boost</label>
+        <div class="range-row">
+          <input id="edgeBoost" type="range" min="0" max="1.5" step="0.05" value="0.25">
+          <output class="value" id="edgeBoostValue">0.25</output>
+        </div>
+      </div>
+    </div>
+
+    <div class="toggles">
+      <label class="toggle"><input id="invert" type="checkbox"> Invert density</label>
+      <button class="action" id="pause" type="button" aria-pressed="false">Ⅱ Pause</button>
+      <button class="action primary" id="reset" type="button">Reset settings</button>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite">Loading shader source…</div>
+  </section>
+
+  <div class="footer">
+    <span>Standalone shader sources · No external JavaScript libraries</span>
+    <a href="https://github.com/Dripxiecon/Shader-kit/tree/main/shaders/3d-ascii" target="_blank" rel="noopener">View shader files ↗</a>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+const SHADER_BASE = "https://raw.githubusercontent.com/Dripxiecon/Shader-kit/main/shaders/3d-ascii/";
+const DEFAULTS = Object.freeze({
+  shape: 0, colorMode: 3, glyphSet: 0, cellSize: 14,
+  exposure: 1.15, contrast: 1, edgeBoost: 0.25,
+  invert: false, paused: false
+});
+
+const canvas = document.getElementById("view");
+const statusNode = document.getElementById("status");
+const statusPill = document.getElementById("statusPill");
+const statusLabel = document.getElementById("statusLabel");
+const settings = { ...DEFAULTS };
+
+let gl = null;
+let sceneProgram = null;
+let asciiProgram = null;
+let vertexArray = null;
+let sceneFramebuffer = null;
+let sceneTextures = [];
+let gridWidth = 0;
+let gridHeight = 0;
+let sceneTime = 0;
+let previousFrame = 0;
+let animationHandle = 0;
+let contextLost = false;
+
+const sceneUniforms = {};
+const asciiUniforms = {};
+
+function setStatus(message, isError = false) {
+  statusNode.textContent = message;
+  statusNode.classList.toggle("error", isError);
+  statusPill.classList.toggle("ready", !isError && message.toLowerCase().includes("ready"));
+  statusLabel.textContent = isError ? "Error" : (message.toLowerCase().includes("ready") ? "Ready" : "Loading");
+}
+
+async function loadShader(path) {
+  const response = await fetch(SHADER_BASE + path, { cache: "no-store" });
+  if (!response.ok) throw new Error("Could not load " + path + " (" + response.status + ").");
+  const source = await response.text();
+  if (!source.startsWith("#version 330 core")) {
+    throw new Error(path + " does not have the expected GLSL 330 header.");
+  }
+  return source.replace(
+    "#version 330 core",
+    "#version 300 es\nprecision highp float;\nprecision highp int;"
+  );
+}
+
+function compileShader(type, source, label) {
+  const shader = gl.createShader(type);
+  if (!shader) throw new Error("Could not allocate " + label + ".");
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(shader) || "Unknown shader compile error.";
+    gl.deleteShader(shader);
+    throw new Error(label + " compile failed:\n" + log);
+  }
+  return shader;
+}
+
+function linkProgram(vertexSource, fragmentSource, label) {
+  const vertex = compileShader(gl.VERTEX_SHADER, vertexSource, label + " vertex shader");
+  let fragment;
+  try {
+    fragment = compileShader(gl.FRAGMENT_SHADER, fragmentSource, label + " fragment shader");
+  } catch (error) {
+    gl.deleteShader(vertex);
+    throw error;
+  }
+  const program = gl.createProgram();
+  if (!program) {
+    gl.deleteShader(vertex);
+    gl.deleteShader(fragment);
+    throw new Error("Could not allocate " + label + " program.");
+  }
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  gl.deleteShader(vertex);
+  gl.deleteShader(fragment);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    const log = gl.getProgramInfoLog(program) || "Unknown program link error.";
+    gl.deleteProgram(program);
+    throw new Error(label + " program link failed:\n" + log);
+  }
+  return program;
+}
+
+function uniformMap(program, names) {
+  const result = {};
+  for (const name of names) result[name] = gl.getUniformLocation(program, name);
+  return result;
+}
+
+function createTargets(width, height) {
+  if (sceneFramebuffer) gl.deleteFramebuffer(sceneFramebuffer);
+  for (const texture of sceneTextures) gl.deleteTexture(texture);
+
+  sceneFramebuffer = gl.createFramebuffer();
+  if (!sceneFramebuffer) throw new Error("Could not allocate scene framebuffer.");
+  sceneTextures = [];
+  gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
+
+  for (let index = 0; index < 2; index += 1) {
+    const texture = gl.createTexture();
+    if (!texture) throw new Error("Could not allocate scene texture.");
+    sceneTextures.push(texture);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + index, gl.TEXTURE_2D, texture, 0
+    );
+  }
+
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+  const framebufferStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  if (framebufferStatus !== gl.FRAMEBUFFER_COMPLETE) {
+    throw new Error("Scene framebuffer is incomplete (0x" + framebufferStatus.toString(16) + ").");
+  }
+  gridWidth = width;
+  gridHeight = height;
+}
+
+function resizeCanvas() {
+  if (!gl || contextLost) return;
+  const bounds = canvas.getBoundingClientRect();
+  if (bounds.width < 1 || bounds.height < 1) return;
+
+  const deviceScale = Math.min(window.devicePixelRatio || 1, 1.5);
+  const maxDimensionScale = Math.min(1, 1800 / Math.max(bounds.width * deviceScale, bounds.height * deviceScale));
+  const scale = deviceScale * maxDimensionScale;
+  const width = Math.max(1, Math.round(bounds.width * scale));
+  const height = Math.max(1, Math.round(bounds.height * scale));
+
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+    gl.viewport(0, 0, width, height);
+    gridWidth = 0;
+    gridHeight = 0;
+  }
+}
+
+function setIfPresent(location, callback) {
+  if (location !== null) callback(location);
+}
+
+function renderFrame(timestamp) {
+  if (!gl || contextLost) return;
+  animationHandle = requestAnimationFrame(renderFrame);
+
+  const now = timestamp * 0.001;
+  if (previousFrame === 0) previousFrame = now;
+  const delta = Math.min(Math.max(now - previousFrame, 0), 0.08);
+  previousFrame = now;
+  if (!settings.paused) sceneTime += delta;
+  if (canvas.width < 1 || canvas.height < 1) return;
+
+  const width = canvas.width;
+  const height = canvas.height;
+  const cellWidth = Number(settings.cellSize);
+  const cellHeight = cellWidth * 1.4;
+  const nextGridWidth = Math.max(1, Math.ceil(width / cellWidth));
+  const nextGridHeight = Math.max(1, Math.ceil(height / cellHeight));
+  if (nextGridWidth !== gridWidth || nextGridHeight !== gridHeight) {
+    createTargets(nextGridWidth, nextGridHeight);
+  }
+
+  gl.bindVertexArray(vertexArray);
+  gl.disable(gl.BLEND);
+  gl.disable(gl.DEPTH_TEST);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
+  gl.viewport(0, 0, gridWidth, gridHeight);
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  gl.useProgram(sceneProgram);
+  setIfPresent(sceneUniforms.uOutputResolution, location => gl.uniform2f(location, width, height));
+  setIfPresent(sceneUniforms.uGridResolution, location => gl.uniform2f(location, gridWidth, gridHeight));
+  setIfPresent(sceneUniforms.uCellSize, location => gl.uniform1f(location, cellWidth));
+  setIfPresent(sceneUniforms.uTime, location => gl.uniform1f(location, sceneTime));
+  setIfPresent(sceneUniforms.uCameraDistance, location => gl.uniform1f(location, 5.2));
+  setIfPresent(sceneUniforms.uRotationSpeed, location => gl.uniform1f(location, 0.55));
+  setIfPresent(sceneUniforms.uAnimate, location => gl.uniform1i(location, 1));
+  setIfPresent(sceneUniforms.uShape, location => gl.uniform1i(location, Number(settings.shape)));
+  setIfPresent(sceneUniforms.uLightDirection, location => gl.uniform3f(location, -0.45, 0.8, 0.55));
+  setIfPresent(sceneUniforms.uAmbient, location => gl.uniform1f(location, 0.20));
+  setIfPresent(sceneUniforms.uSpecular, location => gl.uniform1f(location, 0.18));
+  setIfPresent(sceneUniforms.uFog, location => gl.uniform1f(location, 0.0));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, width, height);
+  gl.drawBuffers([gl.BACK]);
+  gl.clearColor(0.008, 0.016, 0.02, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  gl.useProgram(asciiProgram);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, sceneTextures[0]);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, sceneTextures[1]);
+  setIfPresent(asciiUniforms.uSceneColor, location => gl.uniform1i(location, 0));
+  setIfPresent(asciiUniforms.uSceneNormal, location => gl.uniform1i(location, 1));
+  setIfPresent(asciiUniforms.uCellSize, location => gl.uniform1f(location, cellWidth));
+  setIfPresent(asciiUniforms.uColorMode, location => gl.uniform1i(location, Number(settings.colorMode)));
+  setIfPresent(asciiUniforms.uGlyphSet, location => gl.uniform1i(location, Number(settings.glyphSet)));
+  setIfPresent(asciiUniforms.uExposure, location => gl.uniform1f(location, Number(settings.exposure)));
+  setIfPresent(asciiUniforms.uContrast, location => gl.uniform1f(location, Number(settings.contrast)));
+  setIfPresent(asciiUniforms.uEdgeBoost, location => gl.uniform1f(location, Number(settings.edgeBoost)));
+  setIfPresent(asciiUniforms.uInvert, location => gl.uniform1i(location, settings.invert ? 1 : 0));
+  setIfPresent(asciiUniforms.uBackgroundColor, location => gl.uniform3f(location, 0, 0, 0));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+function bindControls() {
+  const selectIds = ["shape", "colorMode", "glyphSet"];
+  for (const id of selectIds) {
+    const control = document.getElementById(id);
+    control.addEventListener("change", () => { settings[id] = Number(control.value); });
+  }
+
+  const rangeIds = ["cellSize", "exposure", "contrast", "edgeBoost"];
+  for (const id of rangeIds) {
+    const control = document.getElementById(id);
+    const output = document.getElementById(id + "Value");
+    const update = () => {
+      settings[id] = Number(control.value);
+      output.value = id === "cellSize" ? control.value + " px" : Number(control.value).toFixed(2);
+    };
+    control.addEventListener("input", update);
+    update();
+  }
+
+  document.getElementById("invert").addEventListener("change", event => {
+    settings.invert = event.currentTarget.checked;
+  });
+
+  const pauseButton = document.getElementById("pause");
+  pauseButton.addEventListener("click", () => {
+    settings.paused = !settings.paused;
+    pauseButton.setAttribute("aria-pressed", String(settings.paused));
+    pauseButton.textContent = settings.paused ? "▶ Resume" : "Ⅱ Pause";
+  });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    Object.assign(settings, DEFAULTS);
+    for (const id of selectIds) document.getElementById(id).value = String(settings[id]);
+    for (const id of rangeIds) {
+      const control = document.getElementById(id);
+      control.value = String(settings[id]);
+      control.dispatchEvent(new Event("input"));
+    }
+    document.getElementById("invert").checked = false;
+    pauseButton.setAttribute("aria-pressed", "false");
+    pauseButton.textContent = "Ⅱ Pause";
+  });
+}
+
+async function start() {
+  gl = canvas.getContext("webgl2", {
+    alpha: false, antialias: false, depth: false, stencil: false,
+    powerPreference: "high-performance", preserveDrawingBuffer: false
+  });
+  if (!gl) {
+    throw new Error("This browser did not provide WebGL 2. Try current Chrome and check that hardware acceleration is enabled.");
+  }
+
+  const [vertexSource, sceneSource, asciiSource] = await Promise.all([
+    loadShader("fullscreen.vert"),
+    loadShader("ascii3d_scene.frag"),
+    loadShader("ascii3d.frag")
+  ]);
+
+  sceneProgram = linkProgram(vertexSource, sceneSource, "Scene pass");
+  asciiProgram = linkProgram(vertexSource, asciiSource, "ASCII pass");
+  vertexArray = gl.createVertexArray();
+  if (!vertexArray) throw new Error("Could not create the full-screen vertex array.");
+
+  Object.assign(sceneUniforms, uniformMap(sceneProgram, [
+    "uOutputResolution", "uGridResolution", "uCellSize", "uTime",
+    "uCameraDistance", "uRotationSpeed", "uAnimate", "uShape",
+    "uLightDirection", "uAmbient", "uSpecular", "uFog"
+  ]));
+  Object.assign(asciiUniforms, uniformMap(asciiProgram, [
+    "uSceneColor", "uSceneNormal", "uCellSize", "uColorMode",
+    "uGlyphSet", "uExposure", "uContrast", "uEdgeBoost",
+    "uInvert", "uBackgroundColor"
+  ]));
+
+  bindControls();
+  resizeCanvas();
+  if ("ResizeObserver" in window) {
+    const observer = new ResizeObserver(resizeCanvas);
+    observer.observe(canvas);
+  } else {
+    window.addEventListener("resize", resizeCanvas, { passive: true });
+  }
+  setStatus("WebGL 2 ready · live rendering on this device.");
+  previousFrame = 0;
+  animationHandle = requestAnimationFrame(renderFrame);
+}
+
+canvas.addEventListener("webglcontextlost", event => {
+  event.preventDefault();
+  contextLost = true;
+  if (animationHandle) cancelAnimationFrame(animationHandle);
+  setStatus("Graphics context lost. Reload this page to restart.", true);
+});
+canvas.addEventListener("webglcontextrestored", () => window.location.reload());
+
+start().catch(error => {
+  console.error(error);
+  setStatus(error.message || String(error), true);
+});
+</script>
+</body>
+</html>
