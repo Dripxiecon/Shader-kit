@@ -4,7 +4,7 @@ A collection of standalone shader projects, organized by effect.
 
 ## Shaders
 
-- [3D Symbol Shader](shaders/3d-ascii/README.md) — a configurable three-pass GLSL 330 Core renderer with a 95-character printable ASCII glyph library, shape-aware symbol matching, a raymarched demo scene, and Android-friendly WebGL 2 and desktop OpenGL previews.
+- [3D Symbol Shader](shaders/3d-ascii/README.md) — a configurable three-pass GLSL 330 Core renderer with a 95-glyph visible printable ASCII library, shape-aware symbol matching, a raymarched demo scene, and Android-friendly WebGL 2 and desktop OpenGL previews.
 
 ## Live preview
 
