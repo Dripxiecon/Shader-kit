@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#080d14">
-<meta name="description" content="Interactive 3D ASCII shader preview powered by WebGL 2.">
+<meta name="description" content="Interactive 3D ASCII shader playground with touch orbit camera controls.">
 <title>3D ASCII Lab</title>
 <style>
 :root {
@@ -30,9 +30,9 @@ body {
 }
 button, input, select { font: inherit; }
 .shell {
-  width: min(1100px, 100%);
+  width: min(1440px, 100%);
   margin: 0 auto;
-  padding: max(18px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  padding: max(18px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
 }
 .header {
   display: flex;
@@ -76,8 +76,8 @@ h1 { margin: 0; font-size: clamp(19px, 4vw, 25px); letter-spacing: -.04em; }
 .stage {
   position: relative;
   overflow: hidden;
-  min-height: 280px;
-  height: min(54vh, 590px);
+  min-height: 380px;
+  height: min(68vh, 780px);
   border: 1px solid rgba(114,245,197,.22);
   border-radius: 24px;
   background:
@@ -87,12 +87,29 @@ h1 { margin: 0; font-size: clamp(19px, 4vw, 25px); letter-spacing: -.04em; }
   background-size: 28px 28px;
   box-shadow: 0 22px 70px rgba(0,0,0,.34), inset 0 0 45px rgba(27, 125, 105, .08);
 }
-canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+.stage:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  background-color: #020609;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+canvas:active { cursor: grabbing; }
 .stage-label {
   position: absolute;
-  top: 13px;
-  left: 14px;
-  padding: 6px 9px;
+  top: 15px;
+  left: 16px;
+  padding: 7px 10px;
   border: 1px solid rgba(114,245,197,.17);
   border-radius: 8px;
   color: rgba(185,255,229,.75);
@@ -101,11 +118,20 @@ canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
   letter-spacing: .13em;
   pointer-events: none;
 }
+.stage-tools {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+}
 .stage-hint {
   position: absolute;
-  right: 14px;
-  bottom: 12px;
-  color: rgba(180,208,207,.55);
+  left: 16px;
+  bottom: 14px;
+  padding: 6px 9px;
+  border: 1px solid rgba(137,177,190,.12);
+  border-radius: 8px;
+  color: rgba(180,208,207,.7);
+  background: rgba(3, 12, 14, .55);
   font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
   pointer-events: none;
 }
@@ -154,7 +180,7 @@ select:focus, button:focus-visible, input:focus-visible { outline: 2px solid var
 .range-row { display: flex; align-items: center; gap: 8px; }
 input[type="range"] { width: 100%; min-width: 0; accent-color: var(--mint); }
 .value {
-  min-width: 39px;
+  min-width: 43px;
   color: var(--mint);
   text-align: right;
   font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -188,6 +214,14 @@ input[type="range"] { width: 100%; min-width: 0; accent-color: var(--mint); }
   color: #ffd1a4;
   background: rgba(255,179,107,.1);
 }
+.action.compact {
+  min-height: 36px;
+  padding: 0 11px;
+  border-color: rgba(114,245,197,.25);
+  background: rgba(4,14,17,.82);
+  backdrop-filter: blur(10px);
+  font-size: 11px;
+}
 .toggle {
   display: inline-flex;
   align-items: center;
@@ -216,7 +250,10 @@ a:hover { text-decoration: underline; }
   .shell { padding-left: 12px; padding-right: 12px; }
   .header { margin-bottom: 12px; }
   .pill { padding: 6px 8px; font-size: 9px; }
-  .stage { height: 43vh; min-height: 260px; max-height: 440px; border-radius: 18px; }
+  .stage { height: 62svh; min-height: 340px; max-height: 680px; border-radius: 18px; }
+  .stage-label { top: 12px; left: 12px; font-size: 9px; }
+  .stage-tools { top: 9px; right: 10px; }
+  .stage-hint { left: 12px; bottom: 11px; font-size: 9px; }
   .panel { padding: 13px; border-radius: 16px; }
   .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
   .panel-note { display: none; }
@@ -226,6 +263,7 @@ a:hover { text-decoration: underline; }
   .brand { gap: 8px; }
   .mark { width: 36px; height: 36px; border-radius: 11px; }
   .sub { font-size: 10px; }
+  .stage { min-height: 300px; }
 }
 </style>
 </head>
@@ -236,22 +274,25 @@ a:hover { text-decoration: underline; }
       <div class="mark" aria-hidden="true">✳</div>
       <div>
         <h1>3D ASCII Lab</h1>
-        <div class="sub">Live shader playground · WebGL 2 · Mobile ready</div>
+        <div class="sub">Live shader playground · WebGL 2 · Touch camera</div>
       </div>
     </div>
     <div class="pill" id="statusPill"><span class="dot"></span><span id="statusLabel">Starting</span></div>
   </header>
 
-  <section class="stage" aria-label="3D ASCII shader output">
-    <canvas id="view" aria-label="Animated 3D ASCII render"></canvas>
+  <section class="stage" id="stage" aria-label="Interactive 3D ASCII shader output">
+    <canvas id="view" aria-label="Drag to orbit the 3D camera. Pinch or scroll to zoom."></canvas>
     <div class="stage-label">LIVE RENDER / GLSL ES 3.00</div>
-    <div class="stage-hint">SCROLL DOWN FOR CONTROLS</div>
+    <div class="stage-tools">
+      <button class="action compact" id="fullscreen" type="button">⛶ Full screen</button>
+    </div>
+    <div class="stage-hint">DRAG TO ORBIT · PINCH / WHEEL TO ZOOM</div>
   </section>
 
   <section class="panel" aria-label="Shader settings">
     <div class="panel-head">
-      <div class="panel-title">Render controls</div>
-      <div class="panel-note">Changes apply instantly</div>
+      <div class="panel-title">Scene &amp; camera</div>
+      <div class="panel-note">Touch the render to look around</div>
     </div>
 
     <div class="controls">
@@ -283,6 +324,13 @@ a:hover { text-decoration: underline; }
       </div>
 
       <div class="control">
+        <label for="cameraDistance">Camera distance</label>
+        <div class="range-row">
+          <input id="cameraDistance" type="range" min="2.8" max="9" step="0.1" value="5.2">
+          <output class="value" id="cameraDistanceValue">5.2</output>
+        </div>
+      </div>
+      <div class="control">
         <label for="cellSize">Character size</label>
         <div class="range-row">
           <input id="cellSize" type="range" min="8" max="30" step="1" value="14">
@@ -313,9 +361,11 @@ a:hover { text-decoration: underline; }
     </div>
 
     <div class="toggles">
+      <label class="toggle"><input id="spin" type="checkbox" checked> Spin object</label>
       <label class="toggle"><input id="invert" type="checkbox"> Invert density</label>
+      <button class="action" id="resetCamera" type="button">Reset camera</button>
       <button class="action" id="pause" type="button" aria-pressed="false">Ⅱ Pause</button>
-      <button class="action primary" id="reset" type="button">Reset settings</button>
+      <button class="action primary" id="reset" type="button">Reset all</button>
     </div>
     <div class="status" id="status" role="status" aria-live="polite">Loading shader source…</div>
   </section>
@@ -332,15 +382,19 @@ a:hover { text-decoration: underline; }
 const SHADER_BASE = "../";
 const DEFAULTS = Object.freeze({
   shape: 0, colorMode: 3, glyphSet: 0, cellSize: 14,
-  exposure: 1.15, contrast: 1, edgeBoost: 0.25,
-  invert: false, paused: false
+  cameraDistance: 5.2, exposure: 1.15, contrast: 1, edgeBoost: 0.25,
+  spin: true, invert: false, paused: false
 });
+const CAMERA_DEFAULTS = Object.freeze({ yaw: 0, pitch: 0 });
 
 const canvas = document.getElementById("view");
+const stage = document.getElementById("stage");
 const statusNode = document.getElementById("status");
 const statusPill = document.getElementById("statusPill");
 const statusLabel = document.getElementById("statusLabel");
 const settings = { ...DEFAULTS };
+const camera = { ...CAMERA_DEFAULTS };
+const activePointers = new Map();
 
 let gl = null;
 let sceneProgram = null;
@@ -354,9 +408,14 @@ let sceneTime = 0;
 let previousFrame = 0;
 let animationHandle = 0;
 let contextLost = false;
+let lastPinchDistance = 0;
 
 const sceneUniforms = {};
 const asciiUniforms = {};
+
+function clamp(value, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
 
 function setStatus(message, isError = false) {
   statusNode.textContent = message;
@@ -519,9 +578,12 @@ function renderFrame(timestamp) {
   setIfPresent(sceneUniforms.uGridResolution, location => gl.uniform2f(location, gridWidth, gridHeight));
   setIfPresent(sceneUniforms.uCellSize, location => gl.uniform1f(location, cellWidth));
   setIfPresent(sceneUniforms.uTime, location => gl.uniform1f(location, sceneTime));
-  setIfPresent(sceneUniforms.uCameraDistance, location => gl.uniform1f(location, 5.2));
+  setIfPresent(sceneUniforms.uCameraDistance, location => gl.uniform1f(location, Number(settings.cameraDistance)));
+  setIfPresent(sceneUniforms.uCameraYaw, location => gl.uniform1f(location, camera.yaw));
+  setIfPresent(sceneUniforms.uCameraPitch, location => gl.uniform1f(location, camera.pitch));
+  setIfPresent(sceneUniforms.uCameraTarget, location => gl.uniform3f(location, 0, -0.10, 0));
   setIfPresent(sceneUniforms.uRotationSpeed, location => gl.uniform1f(location, 0.55));
-  setIfPresent(sceneUniforms.uAnimate, location => gl.uniform1i(location, 1));
+  setIfPresent(sceneUniforms.uAnimate, location => gl.uniform1i(location, settings.spin ? 1 : 0));
   setIfPresent(sceneUniforms.uShape, location => gl.uniform1i(location, Number(settings.shape)));
   setIfPresent(sceneUniforms.uLightDirection, location => gl.uniform3f(location, -0.45, 0.8, 0.55));
   setIfPresent(sceneUniforms.uAmbient, location => gl.uniform1f(location, 0.20));
@@ -553,6 +615,95 @@ function renderFrame(timestamp) {
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
+function syncCameraDistance() {
+  const control = document.getElementById("cameraDistance");
+  control.value = String(settings.cameraDistance);
+  document.getElementById("cameraDistanceValue").value = Number(settings.cameraDistance).toFixed(1);
+}
+
+function resetCamera() {
+  camera.yaw = CAMERA_DEFAULTS.yaw;
+  camera.pitch = CAMERA_DEFAULTS.pitch;
+  settings.cameraDistance = DEFAULTS.cameraDistance;
+  syncCameraDistance();
+}
+
+function getPinchDistance() {
+  const points = Array.from(activePointers.values());
+  if (points.length < 2) return 0;
+  return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+}
+
+function bindCameraControls() {
+  canvas.addEventListener("pointerdown", event => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    canvas.setPointerCapture(event.pointerId);
+    activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (activePointers.size === 2) lastPinchDistance = getPinchDistance();
+  });
+
+  canvas.addEventListener("pointermove", event => {
+    const previous = activePointers.get(event.pointerId);
+    if (!previous) return;
+    const dx = event.clientX - previous.x;
+    const dy = event.clientY - previous.y;
+    activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (activePointers.size === 1) {
+      camera.yaw -= dx * 0.006;
+      camera.pitch = clamp(camera.pitch + dy * 0.006, -1.35, 1.35);
+    } else if (activePointers.size >= 2) {
+      const nextDistance = getPinchDistance();
+      if (lastPinchDistance > 0 && nextDistance > 0) {
+        settings.cameraDistance = clamp(
+          settings.cameraDistance * lastPinchDistance / nextDistance,
+          2.8,
+          9
+        );
+        syncCameraDistance();
+      }
+      lastPinchDistance = nextDistance;
+    }
+  });
+
+  const finishPointer = event => {
+    activePointers.delete(event.pointerId);
+    lastPinchDistance = activePointers.size >= 2 ? getPinchDistance() : 0;
+  };
+  canvas.addEventListener("pointerup", finishPointer);
+  canvas.addEventListener("pointercancel", finishPointer);
+  canvas.addEventListener("lostpointercapture", finishPointer);
+
+  canvas.addEventListener("wheel", event => {
+    event.preventDefault();
+    settings.cameraDistance = clamp(settings.cameraDistance + event.deltaY * 0.004, 2.8, 9);
+    syncCameraDistance();
+  }, { passive: false });
+
+  canvas.addEventListener("dblclick", resetCamera);
+
+  document.getElementById("resetCamera").addEventListener("click", resetCamera);
+
+  const fullscreenButton = document.getElementById("fullscreen");
+  fullscreenButton.addEventListener("click", async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (stage.requestFullscreen) {
+        await stage.requestFullscreen();
+      } else {
+        throw new Error("Full screen is not supported by this browser.");
+      }
+    } catch (error) {
+      setStatus(error.message || String(error), true);
+    }
+  });
+  document.addEventListener("fullscreenchange", () => {
+    fullscreenButton.textContent = document.fullscreenElement ? "↙ Exit full screen" : "⛶ Full screen";
+    resizeCanvas();
+  });
+}
+
 function bindControls() {
   const selectIds = ["shape", "colorMode", "glyphSet"];
   for (const id of selectIds) {
@@ -560,18 +711,23 @@ function bindControls() {
     control.addEventListener("change", () => { settings[id] = Number(control.value); });
   }
 
-  const rangeIds = ["cellSize", "exposure", "contrast", "edgeBoost"];
+  const rangeIds = ["cameraDistance", "cellSize", "exposure", "contrast", "edgeBoost"];
   for (const id of rangeIds) {
     const control = document.getElementById(id);
     const output = document.getElementById(id + "Value");
     const update = () => {
       settings[id] = Number(control.value);
-      output.value = id === "cellSize" ? control.value + " px" : Number(control.value).toFixed(2);
+      output.value = id === "cellSize"
+        ? control.value + " px"
+        : (id === "cameraDistance" ? Number(control.value).toFixed(1) : Number(control.value).toFixed(2));
     };
     control.addEventListener("input", update);
     update();
   }
 
+  document.getElementById("spin").addEventListener("change", event => {
+    settings.spin = event.currentTarget.checked;
+  });
   document.getElementById("invert").addEventListener("change", event => {
     settings.invert = event.currentTarget.checked;
   });
@@ -585,12 +741,15 @@ function bindControls() {
 
   document.getElementById("reset").addEventListener("click", () => {
     Object.assign(settings, DEFAULTS);
+    camera.yaw = CAMERA_DEFAULTS.yaw;
+    camera.pitch = CAMERA_DEFAULTS.pitch;
     for (const id of selectIds) document.getElementById(id).value = String(settings[id]);
     for (const id of rangeIds) {
       const control = document.getElementById(id);
       control.value = String(settings[id]);
       control.dispatchEvent(new Event("input"));
     }
+    document.getElementById("spin").checked = true;
     document.getElementById("invert").checked = false;
     pauseButton.setAttribute("aria-pressed", "false");
     pauseButton.textContent = "Ⅱ Pause";
@@ -619,7 +778,8 @@ async function start() {
 
   Object.assign(sceneUniforms, uniformMap(sceneProgram, [
     "uOutputResolution", "uGridResolution", "uCellSize", "uTime",
-    "uCameraDistance", "uRotationSpeed", "uAnimate", "uShape",
+    "uCameraDistance", "uCameraYaw", "uCameraPitch", "uCameraTarget",
+    "uRotationSpeed", "uAnimate", "uShape",
     "uLightDirection", "uAmbient", "uSpecular", "uFog"
   ]));
   Object.assign(asciiUniforms, uniformMap(asciiProgram, [
@@ -629,6 +789,7 @@ async function start() {
   ]));
 
   bindControls();
+  bindCameraControls();
   resizeCanvas();
   if ("ResizeObserver" in window) {
     const observer = new ResizeObserver(resizeCanvas);
@@ -636,7 +797,7 @@ async function start() {
   } else {
     window.addEventListener("resize", resizeCanvas, { passive: true });
   }
-  setStatus("WebGL 2 ready · live rendering on this device.");
+  setStatus("WebGL 2 ready · drag to orbit, pinch to zoom.");
   previousFrame = 0;
   animationHandle = requestAnimationFrame(renderFrame);
 }
