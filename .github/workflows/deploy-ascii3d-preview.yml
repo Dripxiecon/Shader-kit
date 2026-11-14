@@ -1,4 +1,4 @@
-name: Deploy 3D ASCII Web Preview
+name: Deploy 3D Symbol Web Preview
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload 3D ASCII shader site
+      - name: Upload 3D Symbol shader site
         uses: actions/upload-pages-artifact@v4
         with:
           path: shaders/3d-ascii
