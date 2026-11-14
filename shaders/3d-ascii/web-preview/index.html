@@ -331,6 +331,13 @@ a:hover { text-decoration: underline; }
         </div>
       </div>
       <div class="control">
+        <label for="glyphSpacing">Character gap</label>
+        <div class="range-row">
+          <input id="glyphSpacing" type="range" min="0" max="0.16" step="0.005" value="0.025">
+          <output class="value" id="glyphSpacingValue">2.5%</output>
+        </div>
+      </div>
+      <div class="control">
         <label for="cellSize">Character size</label>
         <div class="range-row">
           <input id="cellSize" type="range" min="8" max="30" step="1" value="14">
@@ -381,8 +388,8 @@ a:hover { text-decoration: underline; }
 
 const SHADER_BASE = "../";
 const DEFAULTS = Object.freeze({
-  shape: 0, colorMode: 3, glyphSet: 0, cellSize: 14,
-  cameraDistance: 5.2, exposure: 1.15, contrast: 1, edgeBoost: 0.25,
+  shape: 0, colorMode: 3, glyphSet: 2, cellSize: 13, glyphSpacing: 0.025,
+  cameraDistance: 5.2, exposure: 0.9, contrast: 0.85, edgeBoost: 0.08,
   spin: true, invert: false, paused: false
 });
 const CAMERA_DEFAULTS = Object.freeze({ yaw: 0, pitch: 0 });
@@ -594,7 +601,7 @@ function renderFrame(timestamp) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, width, height);
   gl.drawBuffers([gl.BACK]);
-  gl.clearColor(0.008, 0.016, 0.02, 1);
+  gl.clearColor(0.012, 0.018, 0.024, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
 
   gl.useProgram(asciiProgram);
@@ -610,8 +617,9 @@ function renderFrame(timestamp) {
   setIfPresent(asciiUniforms.uExposure, location => gl.uniform1f(location, Number(settings.exposure)));
   setIfPresent(asciiUniforms.uContrast, location => gl.uniform1f(location, Number(settings.contrast)));
   setIfPresent(asciiUniforms.uEdgeBoost, location => gl.uniform1f(location, Number(settings.edgeBoost)));
+  setIfPresent(asciiUniforms.uGlyphSpacing, location => gl.uniform1f(location, Number(settings.glyphSpacing)));
   setIfPresent(asciiUniforms.uInvert, location => gl.uniform1i(location, settings.invert ? 1 : 0));
-  setIfPresent(asciiUniforms.uBackgroundColor, location => gl.uniform3f(location, 0, 0, 0));
+  setIfPresent(asciiUniforms.uBackgroundColor, location => gl.uniform3f(location, 0.012, 0.018, 0.024));
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
@@ -711,7 +719,7 @@ function bindControls() {
     control.addEventListener("change", () => { settings[id] = Number(control.value); });
   }
 
-  const rangeIds = ["cameraDistance", "cellSize", "exposure", "contrast", "edgeBoost"];
+  const rangeIds = ["cameraDistance", "cellSize", "glyphSpacing", "exposure", "contrast", "edgeBoost"];
   for (const id of rangeIds) {
     const control = document.getElementById(id);
     const output = document.getElementById(id + "Value");
@@ -719,7 +727,9 @@ function bindControls() {
       settings[id] = Number(control.value);
       output.value = id === "cellSize"
         ? control.value + " px"
-        : (id === "cameraDistance" ? Number(control.value).toFixed(1) : Number(control.value).toFixed(2));
+        : id === "glyphSpacing"
+          ? (Number(control.value) * 100).toFixed(1) + "%"
+          : (id === "cameraDistance" ? Number(control.value).toFixed(1) : Number(control.value).toFixed(2));
     };
     control.addEventListener("input", update);
     update();
@@ -784,7 +794,7 @@ async function start() {
   ]));
   Object.assign(asciiUniforms, uniformMap(asciiProgram, [
     "uSceneColor", "uSceneNormal", "uCellSize", "uColorMode",
-    "uGlyphSet", "uExposure", "uContrast", "uEdgeBoost",
+    "uGlyphSet", "uExposure", "uContrast", "uEdgeBoost", "uGlyphSpacing",
     "uInvert", "uBackgroundColor"
   ]));
 
