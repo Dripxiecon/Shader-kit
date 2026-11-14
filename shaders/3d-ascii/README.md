@@ -94,3 +94,9 @@ The vertex shader uses \`gl_VertexID\`, so no vertex buffer is required. Set the
 ## Performance notes
 
 The raymarcher runs once per character cell, rather than once per output pixel. Start with a cell width of 10–16 pixels. Larger cells reduce raymarch cost and create a chunkier terminal look.
+
+## Interactive preview
+
+A desktop OpenGL preview app is included in [preview/](preview/README.md). It loads these shader files directly, builds the two-pass render pipeline, and provides keyboard controls for live tweaking.
+
+See the [preview build instructions](preview/README.md) to compile and run it.
