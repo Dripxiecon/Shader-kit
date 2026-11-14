@@ -249,7 +249,7 @@ const char* colorName(int mode) {
 
 const char* glyphName(int set) {
     static constexpr std::array<const char*, 3> names{
-        "Classic", "Soft", "Bold"
+        "Balanced", "Soft", "Bold"
     };
     return names[static_cast<std::size_t>(std::clamp(set, 0, 2))];
 }
