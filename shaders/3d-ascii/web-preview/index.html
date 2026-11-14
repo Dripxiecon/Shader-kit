@@ -315,6 +315,15 @@ a:hover { text-decoration: underline; }
         </select>
       </div>
       <div class="control">
+        <label for="characterMode">Character set</label>
+        <select id="characterMode">
+          <option value="0" selected>All characters</option>
+          <option value="1">Letters only</option>
+          <option value="2">Numbers only</option>
+          <option value="3">Symbols only</option>
+        </select>
+      </div>
+      <div class="control">
         <label for="glyphSet">Tone response</label>
         <select id="glyphSet">
           <option value="0">Balanced</option>
@@ -399,7 +408,7 @@ a:hover { text-decoration: underline; }
   </section>
 
   <div class="footer">
-    <span>95 visible ASCII glyphs · Three-pass symbol renderer</span>
+    <span>95 visible ASCII glyphs · 4 character-set modes</span>
     <a href="https://github.com/Dripxiecon/Shader-kit/tree/main/shaders/3d-ascii" target="_blank" rel="noopener">View shader files ↗</a>
   </div>
 </main>
@@ -409,7 +418,7 @@ a:hover { text-decoration: underline; }
 
 const SHADER_BASE = "../";
 const DEFAULTS = Object.freeze({
-  shape: 0, colorMode: 3, glyphSet: 2, quality: 2, cellSize: 13,
+  shape: 0, colorMode: 3, glyphSet: 2, characterMode: 0, quality: 2, cellSize: 13,
   glyphSpacing: 0.025, glyphBlur: 0.45, symbolVariation: 0.35,
   cameraDistance: 5.2, exposure: 0.9, contrast: 0.85, edgeBoost: 0.08,
   spin: true, invert: false, paused: false
@@ -682,6 +691,7 @@ function renderFrame(timestamp) {
   setIfPresent(symbolUniforms.uSampleScale, location => gl.uniform1i(location, sampleScale));
   setIfPresent(symbolUniforms.uColorMode, location => gl.uniform1i(location, Number(settings.colorMode)));
   setIfPresent(symbolUniforms.uGlyphSet, location => gl.uniform1i(location, Number(settings.glyphSet)));
+  setIfPresent(symbolUniforms.uCharacterMode, location => gl.uniform1i(location, Number(settings.characterMode)));
   setIfPresent(symbolUniforms.uExposure, location => gl.uniform1f(location, Number(settings.exposure)));
   setIfPresent(symbolUniforms.uContrast, location => gl.uniform1f(location, Number(settings.contrast)));
   setIfPresent(symbolUniforms.uEdgeBoost, location => gl.uniform1f(location, Number(settings.edgeBoost)));
@@ -796,7 +806,7 @@ function bindCameraControls() {
 }
 
 function bindControls() {
-  const selectIds = ["shape", "colorMode", "glyphSet", "quality"];
+  const selectIds = ["shape", "colorMode", "glyphSet", "characterMode", "quality"];
   for (const id of selectIds) {
     const control = document.getElementById(id);
     control.addEventListener("change", () => { settings[id] = Number(control.value); });
@@ -882,7 +892,7 @@ async function start() {
     "uLightDirection", "uAmbient", "uSpecular", "uFog"
   ]));
   Object.assign(symbolUniforms, uniformMap(symbolProgram, [
-    "uSceneColor", "uSceneNormal", "uSampleScale", "uColorMode", "uGlyphSet",
+    "uSceneColor", "uSceneNormal", "uSampleScale", "uColorMode", "uGlyphSet", "uCharacterMode",
     "uExposure", "uContrast", "uEdgeBoost", "uSymbolVariation", "uInvert"
   ]));
   Object.assign(asciiUniforms, uniformMap(asciiProgram, [
