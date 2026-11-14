@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#080d14">
-<meta name="description" content="Interactive 3D symbol shader with 95 printable ASCII glyphs and touch orbit camera controls.">
+<meta name="description" content="Interactive 3D symbol shader with the 95 visible printable ASCII glyphs and touch orbit camera controls.">
 <title>3D Symbol Lab</title>
 <style>
 :root {
@@ -399,7 +399,7 @@ a:hover { text-decoration: underline; }
   </section>
 
   <div class="footer">
-    <span>95 printable ASCII glyphs · Three-pass GLSL renderer</span>
+    <span>95 visible ASCII glyphs · Three-pass symbol renderer</span>
     <a href="https://github.com/Dripxiecon/Shader-kit/tree/main/shaders/3d-ascii" target="_blank" rel="noopener">View shader files ↗</a>
   </div>
 </main>
@@ -446,6 +446,7 @@ let contextLost = false;
 let lastPinchDistance = 0;
 
 const sceneUniforms = {};
+const symbolUniforms = {};
 const asciiUniforms = {};
 
 function clamp(value, minimum, maximum) {
