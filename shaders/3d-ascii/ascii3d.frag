@@ -117,7 +117,10 @@ void main() {
         return;
     }
 
-    vec2 glyphPixelPosition = fontPosition * vec2(8.0, 12.0);
+    vec2 glyphPixelPosition = vec2(
+        fontPosition.x * 8.0,
+        (1.0 - fontPosition.y) * 12.0 - 0.0001
+    );
     float glyphAlpha = glyphCoverage(glyph, glyphPixelPosition, uGlyphBlur);
     vec3 background = max(uBackgroundColor, vec3(0.0));
     vec3 glyphColor = max(symbol.rgb, vec3(0.0));
