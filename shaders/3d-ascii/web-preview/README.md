@@ -35,7 +35,7 @@ The camera orbit is separate from object animation. Turn off **Spin object** to 
 - Exposure, contrast, and edge boost adjust how scene lighting maps to symbols.
 - Invert density, pause/resume animation, and reset all settings.
 
-The built-in atlas contains all 95 printable ASCII characters: letters, numbers, punctuation, operators, brackets, and symbols. It is not a full Unicode font; additional Unicode packs can be added later.
+The built-in atlas contains all 95 visible printable ASCII characters: letters, numbers, punctuation, operators, brackets, and symbols. Python's `string.printable` reports 100 because it includes five non-visible whitespace controls in addition to those drawable characters. Full Unicode printable counts vary with the Unicode database version; a texture-backed glyph atlas is the right next step for supporting large Unicode symbol collections.
 
 The preview caps device pixel ratio and uses RGBA8 render targets for broad mobile compatibility.
 
