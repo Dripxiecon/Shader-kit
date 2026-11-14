@@ -4,23 +4,13 @@ This is a mobile-friendly WebGL 2 preview for the 3D ASCII shader. It runs in a 
 
 ## Open on Android
 
-After GitHub Pages has completed its first deployment, open:
+Open the published preview:
 
 https://dripxiecon.github.io/Shader-kit/web-preview/
 
 The page loads the shader source files from the same published site, so it does not need a third-party shader proxy.
 
-## One-time GitHub Pages setup
-
-If the link is not live yet:
-
-1. Open the Shader-kit repository on GitHub.
-2. Open Settings, then Pages.
-3. Under Build and deployment, set Source to GitHub Actions.
-4. Save, then open the Actions tab and wait for Deploy 3D ASCII Web Preview to finish.
-5. Reopen the preview link above.
-
-The workflow publishes only the 3D ASCII shader folder. New commits to that folder automatically redeploy the preview.
+The preview is published with GitHub Pages. The deployment workflow publishes only the 3D ASCII shader folder, and new commits to that folder automatically redeploy the page.
 
 If WebGL 2 is unavailable, update Chrome and check that hardware acceleration is enabled. The phone's GPU must support WebGL 2.
 
