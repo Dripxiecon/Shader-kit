@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#080d14">
-<meta name="description" content="Interactive 3D ASCII shader playground with touch orbit camera controls.">
-<title>3D ASCII Lab</title>
+<meta name="description" content="Interactive 3D symbol shader with 95 printable ASCII glyphs and touch orbit camera controls.">
+<title>3D Symbol Lab</title>
 <style>
 :root {
   color-scheme: dark;
@@ -273,16 +273,16 @@ a:hover { text-decoration: underline; }
     <div class="brand">
       <div class="mark" aria-hidden="true">✳</div>
       <div>
-        <h1>3D ASCII Lab</h1>
-        <div class="sub">Live shader playground · WebGL 2 · Touch camera</div>
+        <h1>3D Symbol Lab</h1>
+        <div class="sub">Live symbol renderer · WebGL 2 · Touch camera</div>
       </div>
     </div>
     <div class="pill" id="statusPill"><span class="dot"></span><span id="statusLabel">Starting</span></div>
   </header>
 
-  <section class="stage" id="stage" aria-label="Interactive 3D ASCII shader output">
+  <section class="stage" id="stage" aria-label="Interactive 3D symbol shader output">
     <canvas id="view" aria-label="Drag to orbit the 3D camera. Pinch or scroll to zoom."></canvas>
-    <div class="stage-label">LIVE RENDER / GLSL ES 3.00</div>
+    <div class="stage-label">LIVE SYMBOL RENDER / GLSL ES 3.00</div>
     <div class="stage-tools">
       <button class="action compact" id="fullscreen" type="button">⛶ Full screen</button>
     </div>
@@ -315,14 +315,21 @@ a:hover { text-decoration: underline; }
         </select>
       </div>
       <div class="control">
-        <label for="glyphSet">Glyph density</label>
+        <label for="glyphSet">Tone response</label>
         <select id="glyphSet">
-          <option value="0">Classic</option>
+          <option value="0">Balanced</option>
           <option value="1">Soft</option>
           <option value="2">Bold</option>
         </select>
       </div>
 
+      <div class="control">
+        <label for="quality">Match quality</label>
+        <select id="quality">
+          <option value="2" selected>Balanced · 2×2</option>
+          <option value="3">Detailed · 3×3</option>
+        </select>
+      </div>
       <div class="control">
         <label for="cameraDistance">Camera distance</label>
         <div class="range-row">
@@ -331,17 +338,24 @@ a:hover { text-decoration: underline; }
         </div>
       </div>
       <div class="control">
-        <label for="glyphSpacing">Character gap</label>
+        <label for="glyphSpacing">Symbol gap</label>
         <div class="range-row">
           <input id="glyphSpacing" type="range" min="0" max="0.16" step="0.005" value="0.025">
           <output class="value" id="glyphSpacingValue">2.5%</output>
         </div>
       </div>
       <div class="control">
-        <label for="glyphBlur">ASCII blur · edges only</label>
+        <label for="glyphBlur">Symbol edge softness</label>
         <div class="range-row">
           <input id="glyphBlur" type="range" min="0" max="1.5" step="0.05" value="0.45">
           <output class="value" id="glyphBlurValue">0.45 px</output>
+        </div>
+      </div>
+      <div class="control">
+        <label for="symbolVariation">Symbol variety</label>
+        <div class="range-row">
+          <input id="symbolVariation" type="range" min="0" max="1" step="0.05" value="0.35">
+          <output class="value" id="symbolVariationValue">35%</output>
         </div>
       </div>
       <div class="control">
@@ -385,7 +399,7 @@ a:hover { text-decoration: underline; }
   </section>
 
   <div class="footer">
-    <span>Standalone shader sources · No external JavaScript libraries</span>
+    <span>95 printable ASCII glyphs · Three-pass GLSL renderer</span>
     <a href="https://github.com/Dripxiecon/Shader-kit/tree/main/shaders/3d-ascii" target="_blank" rel="noopener">View shader files ↗</a>
   </div>
 </main>
@@ -395,7 +409,8 @@ a:hover { text-decoration: underline; }
 
 const SHADER_BASE = "../";
 const DEFAULTS = Object.freeze({
-  shape: 0, colorMode: 3, glyphSet: 2, cellSize: 13, glyphSpacing: 0.025, glyphBlur: 0.45,
+  shape: 0, colorMode: 3, glyphSet: 2, quality: 2, cellSize: 13,
+  glyphSpacing: 0.025, glyphBlur: 0.45, symbolVariation: 0.35,
   cameraDistance: 5.2, exposure: 0.9, contrast: 0.85, edgeBoost: 0.08,
   spin: true, invert: false, paused: false
 });
@@ -412,12 +427,18 @@ const activePointers = new Map();
 
 let gl = null;
 let sceneProgram = null;
+let symbolProgram = null;
 let asciiProgram = null;
 let vertexArray = null;
 let sceneFramebuffer = null;
 let sceneTextures = [];
+let symbolFramebuffer = null;
+let symbolTexture = null;
 let gridWidth = 0;
 let gridHeight = 0;
+let sceneWidth = 0;
+let sceneHeight = 0;
+let activeSampleScale = 0;
 let sceneTime = 0;
 let previousFrame = 0;
 let animationHandle = 0;
@@ -498,9 +519,11 @@ function uniformMap(program, names) {
   return result;
 }
 
-function createTargets(width, height) {
+function createTargets(nextSceneWidth, nextSceneHeight, nextGridWidth, nextGridHeight, nextSampleScale) {
   if (sceneFramebuffer) gl.deleteFramebuffer(sceneFramebuffer);
+  if (symbolFramebuffer) gl.deleteFramebuffer(symbolFramebuffer);
   for (const texture of sceneTextures) gl.deleteTexture(texture);
+  if (symbolTexture) gl.deleteTexture(symbolTexture);
 
   sceneFramebuffer = gl.createFramebuffer();
   if (!sceneFramebuffer) throw new Error("Could not allocate scene framebuffer.");
@@ -516,20 +539,45 @@ function createTargets(width, height) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, nextSceneWidth, nextSceneHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.framebufferTexture2D(
       gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + index, gl.TEXTURE_2D, texture, 0
     );
   }
 
   gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
-  const framebufferStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  if (framebufferStatus !== gl.FRAMEBUFFER_COMPLETE) {
-    throw new Error("Scene framebuffer is incomplete (0x" + framebufferStatus.toString(16) + ").");
+  const sceneStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  if (sceneStatus !== gl.FRAMEBUFFER_COMPLETE) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    throw new Error("Scene framebuffer is incomplete (0x" + sceneStatus.toString(16) + ").");
   }
-  gridWidth = width;
-  gridHeight = height;
+
+  symbolFramebuffer = gl.createFramebuffer();
+  symbolTexture = gl.createTexture();
+  if (!symbolFramebuffer || !symbolTexture) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    throw new Error("Could not allocate symbol-selection target.");
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, symbolFramebuffer);
+  gl.bindTexture(gl.TEXTURE_2D, symbolTexture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, nextGridWidth, nextGridHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, symbolTexture, 0);
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+  const symbolStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  if (symbolStatus !== gl.FRAMEBUFFER_COMPLETE) {
+    throw new Error("Symbol framebuffer is incomplete (0x" + symbolStatus.toString(16) + ").");
+  }
+
+  gridWidth = nextGridWidth;
+  gridHeight = nextGridHeight;
+  sceneWidth = nextSceneWidth;
+  sceneHeight = nextSceneHeight;
+  activeSampleScale = nextSampleScale;
 }
 
 function resizeCanvas() {
@@ -549,6 +597,9 @@ function resizeCanvas() {
     gl.viewport(0, 0, width, height);
     gridWidth = 0;
     gridHeight = 0;
+    sceneWidth = 0;
+    sceneHeight = 0;
+    activeSampleScale = 0;
   }
 }
 
@@ -573,8 +624,16 @@ function renderFrame(timestamp) {
   const cellHeight = cellWidth * 1.4;
   const nextGridWidth = Math.max(1, Math.ceil(width / cellWidth));
   const nextGridHeight = Math.max(1, Math.ceil(height / cellHeight));
-  if (nextGridWidth !== gridWidth || nextGridHeight !== gridHeight) {
-    createTargets(nextGridWidth, nextGridHeight);
+  const sampleScale = Number(settings.quality);
+  const nextSceneWidth = nextGridWidth * sampleScale;
+  const nextSceneHeight = nextGridHeight * sampleScale;
+
+  if (
+    nextGridWidth !== gridWidth ||
+    nextGridHeight !== gridHeight ||
+    sampleScale !== activeSampleScale
+  ) {
+    createTargets(nextSceneWidth, nextSceneHeight, nextGridWidth, nextGridHeight, sampleScale);
   }
 
   gl.bindVertexArray(vertexArray);
@@ -582,15 +641,16 @@ function renderFrame(timestamp) {
   gl.disable(gl.DEPTH_TEST);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer);
-  gl.viewport(0, 0, gridWidth, gridHeight);
+  gl.viewport(0, 0, sceneWidth, sceneHeight);
   gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
 
   gl.useProgram(sceneProgram);
   setIfPresent(sceneUniforms.uOutputResolution, location => gl.uniform2f(location, width, height));
-  setIfPresent(sceneUniforms.uGridResolution, location => gl.uniform2f(location, gridWidth, gridHeight));
+  setIfPresent(sceneUniforms.uGridResolution, location => gl.uniform2f(location, sceneWidth, sceneHeight));
   setIfPresent(sceneUniforms.uCellSize, location => gl.uniform1f(location, cellWidth));
+  setIfPresent(sceneUniforms.uSampleScale, location => gl.uniform1i(location, sampleScale));
   setIfPresent(sceneUniforms.uTime, location => gl.uniform1f(location, sceneTime));
   setIfPresent(sceneUniforms.uCameraDistance, location => gl.uniform1f(location, Number(settings.cameraDistance)));
   setIfPresent(sceneUniforms.uCameraYaw, location => gl.uniform1f(location, camera.yaw));
@@ -605,6 +665,29 @@ function renderFrame(timestamp) {
   setIfPresent(sceneUniforms.uFog, location => gl.uniform1f(location, 0.0));
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 
+  gl.bindFramebuffer(gl.FRAMEBUFFER, symbolFramebuffer);
+  gl.viewport(0, 0, gridWidth, gridHeight);
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  gl.useProgram(symbolProgram);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, sceneTextures[0]);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, sceneTextures[1]);
+  setIfPresent(symbolUniforms.uSceneColor, location => gl.uniform1i(location, 0));
+  setIfPresent(symbolUniforms.uSceneNormal, location => gl.uniform1i(location, 1));
+  setIfPresent(symbolUniforms.uSampleScale, location => gl.uniform1i(location, sampleScale));
+  setIfPresent(symbolUniforms.uColorMode, location => gl.uniform1i(location, Number(settings.colorMode)));
+  setIfPresent(symbolUniforms.uGlyphSet, location => gl.uniform1i(location, Number(settings.glyphSet)));
+  setIfPresent(symbolUniforms.uExposure, location => gl.uniform1f(location, Number(settings.exposure)));
+  setIfPresent(symbolUniforms.uContrast, location => gl.uniform1f(location, Number(settings.contrast)));
+  setIfPresent(symbolUniforms.uEdgeBoost, location => gl.uniform1f(location, Number(settings.edgeBoost)));
+  setIfPresent(symbolUniforms.uSymbolVariation, location => gl.uniform1f(location, Number(settings.symbolVariation)));
+  setIfPresent(symbolUniforms.uInvert, location => gl.uniform1i(location, settings.invert ? 1 : 0));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, width, height);
   gl.drawBuffers([gl.BACK]);
@@ -613,20 +696,11 @@ function renderFrame(timestamp) {
 
   gl.useProgram(asciiProgram);
   gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, sceneTextures[0]);
-  gl.activeTexture(gl.TEXTURE1);
-  gl.bindTexture(gl.TEXTURE_2D, sceneTextures[1]);
-  setIfPresent(asciiUniforms.uSceneColor, location => gl.uniform1i(location, 0));
-  setIfPresent(asciiUniforms.uSceneNormal, location => gl.uniform1i(location, 1));
+  gl.bindTexture(gl.TEXTURE_2D, symbolTexture);
+  setIfPresent(asciiUniforms.uSymbolMap, location => gl.uniform1i(location, 0));
   setIfPresent(asciiUniforms.uCellSize, location => gl.uniform1f(location, cellWidth));
-  setIfPresent(asciiUniforms.uColorMode, location => gl.uniform1i(location, Number(settings.colorMode)));
-  setIfPresent(asciiUniforms.uGlyphSet, location => gl.uniform1i(location, Number(settings.glyphSet)));
-  setIfPresent(asciiUniforms.uExposure, location => gl.uniform1f(location, Number(settings.exposure)));
-  setIfPresent(asciiUniforms.uContrast, location => gl.uniform1f(location, Number(settings.contrast)));
-  setIfPresent(asciiUniforms.uEdgeBoost, location => gl.uniform1f(location, Number(settings.edgeBoost)));
   setIfPresent(asciiUniforms.uGlyphSpacing, location => gl.uniform1f(location, Number(settings.glyphSpacing)));
   setIfPresent(asciiUniforms.uGlyphBlur, location => gl.uniform1f(location, Number(settings.glyphBlur)));
-  setIfPresent(asciiUniforms.uInvert, location => gl.uniform1i(location, settings.invert ? 1 : 0));
   setIfPresent(asciiUniforms.uBackgroundColor, location => gl.uniform3f(location, 0.012, 0.018, 0.024));
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
@@ -721,13 +795,13 @@ function bindCameraControls() {
 }
 
 function bindControls() {
-  const selectIds = ["shape", "colorMode", "glyphSet"];
+  const selectIds = ["shape", "colorMode", "glyphSet", "quality"];
   for (const id of selectIds) {
     const control = document.getElementById(id);
     control.addEventListener("change", () => { settings[id] = Number(control.value); });
   }
 
-  const rangeIds = ["cameraDistance", "cellSize", "glyphSpacing", "glyphBlur", "exposure", "contrast", "edgeBoost"];
+  const rangeIds = ["cameraDistance", "cellSize", "glyphSpacing", "glyphBlur", "symbolVariation", "exposure", "contrast", "edgeBoost"];
   for (const id of rangeIds) {
     const control = document.getElementById(id);
     const output = document.getElementById(id + "Value");
@@ -739,7 +813,9 @@ function bindControls() {
           ? (Number(control.value) * 100).toFixed(1) + "%"
           : id === "glyphBlur"
             ? Number(control.value).toFixed(2) + " px"
-            : (id === "cameraDistance" ? Number(control.value).toFixed(1) : Number(control.value).toFixed(2));
+            : id === "symbolVariation"
+              ? Math.round(Number(control.value) * 100) + "%"
+              : (id === "cameraDistance" ? Number(control.value).toFixed(1) : Number(control.value).toFixed(2));
     };
     control.addEventListener("input", update);
     update();
@@ -785,27 +861,31 @@ async function start() {
     throw new Error("This browser did not provide WebGL 2. Try current Chrome and check that hardware acceleration is enabled.");
   }
 
-  const [vertexSource, sceneSource, asciiSource] = await Promise.all([
+  const [vertexSource, sceneSource, selectSource, asciiSource] = await Promise.all([
     loadShader("fullscreen.vert"),
     loadShader("ascii3d_scene.frag"),
+    loadShader("symbol_select.frag"),
     loadShader("ascii3d.frag")
   ]);
 
   sceneProgram = linkProgram(vertexSource, sceneSource, "Scene pass");
-  asciiProgram = linkProgram(vertexSource, asciiSource, "ASCII pass");
+  symbolProgram = linkProgram(vertexSource, selectSource, "Symbol matching pass");
+  asciiProgram = linkProgram(vertexSource, asciiSource, "Symbol render pass");
   vertexArray = gl.createVertexArray();
   if (!vertexArray) throw new Error("Could not create the full-screen vertex array.");
 
   Object.assign(sceneUniforms, uniformMap(sceneProgram, [
-    "uOutputResolution", "uGridResolution", "uCellSize", "uTime",
+    "uOutputResolution", "uGridResolution", "uCellSize", "uSampleScale", "uTime",
     "uCameraDistance", "uCameraYaw", "uCameraPitch", "uCameraTarget",
     "uRotationSpeed", "uAnimate", "uShape",
     "uLightDirection", "uAmbient", "uSpecular", "uFog"
   ]));
+  Object.assign(symbolUniforms, uniformMap(symbolProgram, [
+    "uSceneColor", "uSceneNormal", "uSampleScale", "uColorMode", "uGlyphSet",
+    "uExposure", "uContrast", "uEdgeBoost", "uSymbolVariation", "uInvert"
+  ]));
   Object.assign(asciiUniforms, uniformMap(asciiProgram, [
-    "uSceneColor", "uSceneNormal", "uCellSize", "uColorMode",
-    "uGlyphSet", "uExposure", "uContrast", "uEdgeBoost", "uGlyphSpacing", "uGlyphBlur",
-    "uInvert", "uBackgroundColor"
+    "uSymbolMap", "uCellSize", "uGlyphSpacing", "uGlyphBlur", "uBackgroundColor"
   ]));
 
   bindControls();
@@ -817,7 +897,7 @@ async function start() {
   } else {
     window.addEventListener("resize", resizeCanvas, { passive: true });
   }
-  setStatus("WebGL 2 ready · drag to orbit, pinch to zoom.");
+  setStatus("Symbol renderer ready · drag to orbit, pinch to zoom.");
   previousFrame = 0;
   animationHandle = requestAnimationFrame(renderFrame);
 }
