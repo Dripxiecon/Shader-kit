@@ -4,7 +4,7 @@ A collection of standalone shader projects, organized by effect.
 
 ## Shaders
 
-- [3D ASCII](shaders/3d-ascii/README.md) — a configurable, two-pass GLSL 330 Core renderer with a raymarched demo scene, an Android-friendly WebGL 2 preview, and a desktop OpenGL preview.
+- [3D ASCII](shaders/3d-ascii/README.md) — a configurable, two-pass GLSL 330 Core renderer with a raymarched demo scene, an orbit camera, and Android-friendly WebGL 2 and desktop OpenGL previews.
 
 ## Live preview
 
