@@ -61,7 +61,8 @@ The camera position is calculated from yaw, pitch, distance, and target. Orbit c
 | `uGlyphSet` | `0` | 0 classic, 1 softer density, 2 bolder density |
 | `uExposure` | `1.15` | Glyph density exposure |
 | `uContrast` | `1.0` | Glyph density contrast |
-| `uEdgeBoost` | `0.25` | Adds character density around silhouettes |
+| `uEdgeBoost` | `0.08` | Adds character density around silhouettes |
+| `uGlyphSpacing` | `0.025` | Fractional gap around each character cell; 0 removes the gap |
 | `uInvert` | `0` | Set to 1 to invert glyph density |
 | `uBackgroundColor` | `(0, 0, 0)` | Background color |
 
