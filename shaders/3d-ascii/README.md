@@ -78,13 +78,14 @@ The scene target must be exactly `gridWidth × uSampleScale` by `gridHeight × u
 | `uSampleScale` | `2` | Must match the scene pass; use 2 or 3 |
 | `uColorMode` | `3` | 0 monochrome, 1 terminal green, 2 normal RGB, 3 full scene color |
 | `uGlyphSet` | `0` | 0 balanced, 1 soft, 2 bold tone response |
+| `uCharacterMode` | `0` | 0 all 95 glyphs, 1 letters, 2 digits, 3 punctuation and symbols |
 | `uExposure` | `0.9` | Controls how much scene light fills glyphs |
 | `uContrast` | `0.85` | Controls separation between light and dark |
 | `uEdgeBoost` | `0.08` | Adds detail around surface silhouettes |
 | `uSymbolVariation` | `0.35` | Stable variation between near-equal glyph matches |
 | `uInvert` | `0` | Set to 1 to invert symbol density |
 
-The selection pass runs once per character cell, not once per output pixel. It evaluates all 95 visible printable ASCII glyphs using the 2×2 or 3×3 scene samples.
+The selection pass runs once per character cell, not once per output pixel. It evaluates the selected character set using the 2×2 or 3×3 scene samples. The default mode evaluates all 95 visible printable ASCII glyphs. Letters-only includes uppercase and lowercase A–Z; numbers-only includes 0–9; symbols-only includes punctuation and operators, excluding letters, digits, and the blank space glyph.
 
 ## Final-pass uniforms
 
