@@ -28,18 +28,26 @@ struct Settings {
     int colorMode = 3;
     int glyphSet = 0;
     int shape = 0;
+    int sampleScale = 2;
+    float symbolVariation = 0.35f;
     bool invert = false;
     bool paused = false;
 };
 
 struct Resources {
     GLuint sceneProgram = 0;
+    GLuint symbolProgram = 0;
     GLuint asciiProgram = 0;
     GLuint vertexArray = 0;
     GLuint sceneFramebuffer = 0;
+    GLuint symbolFramebuffer = 0;
+    GLuint symbolTexture = 0;
     std::array<GLuint, 2> sceneTextures{0, 0};
     int gridWidth = 0;
     int gridHeight = 0;
+    int sampleWidth = 0;
+    int sampleHeight = 0;
+    int sampleScale = 0;
 
     ~Resources() {
         if (sceneTextures[0] != 0 || sceneTextures[1] != 0) {
@@ -48,11 +56,20 @@ struct Resources {
         if (sceneFramebuffer != 0) {
             glDeleteFramebuffers(1, &sceneFramebuffer);
         }
+        if (symbolTexture != 0) {
+            glDeleteTextures(1, &symbolTexture);
+        }
+        if (symbolFramebuffer != 0) {
+            glDeleteFramebuffers(1, &symbolFramebuffer);
+        }
         if (vertexArray != 0) {
             glDeleteVertexArrays(1, &vertexArray);
         }
         if (sceneProgram != 0) {
             glDeleteProgram(sceneProgram);
+        }
+        if (symbolProgram != 0) {
+            glDeleteProgram(symbolProgram);
         }
         if (asciiProgram != 0) {
             glDeleteProgram(asciiProgram);
@@ -64,6 +81,7 @@ struct SceneUniforms {
     GLint outputResolution;
     GLint gridResolution;
     GLint cellSize;
+    GLint sampleScale;
     GLint time;
     GLint cameraDistance;
     GLint rotationSpeed;
@@ -78,6 +96,7 @@ struct SceneUniforms {
         : outputResolution(glGetUniformLocation(program, "uOutputResolution")),
           gridResolution(glGetUniformLocation(program, "uGridResolution")),
           cellSize(glGetUniformLocation(program, "uCellSize")),
+          sampleScale(glGetUniformLocation(program, "uSampleScale")),
           time(glGetUniformLocation(program, "uTime")),
           cameraDistance(glGetUniformLocation(program, "uCameraDistance")),
           rotationSpeed(glGetUniformLocation(program, "uRotationSpeed")),
@@ -89,28 +108,43 @@ struct SceneUniforms {
           fog(glGetUniformLocation(program, "uFog")) {}
 };
 
-struct AsciiUniforms {
+struct SymbolUniforms {
     GLint sceneColor;
     GLint sceneNormal;
-    GLint cellSize;
+    GLint sampleScale;
     GLint colorMode;
     GLint glyphSet;
     GLint exposure;
     GLint contrast;
     GLint edgeBoost;
+    GLint symbolVariation;
     GLint invert;
-    GLint backgroundColor;
 
-    explicit AsciiUniforms(GLuint program)
+    explicit SymbolUniforms(GLuint program)
         : sceneColor(glGetUniformLocation(program, "uSceneColor")),
           sceneNormal(glGetUniformLocation(program, "uSceneNormal")),
-          cellSize(glGetUniformLocation(program, "uCellSize")),
+          sampleScale(glGetUniformLocation(program, "uSampleScale")),
           colorMode(glGetUniformLocation(program, "uColorMode")),
           glyphSet(glGetUniformLocation(program, "uGlyphSet")),
           exposure(glGetUniformLocation(program, "uExposure")),
           contrast(glGetUniformLocation(program, "uContrast")),
           edgeBoost(glGetUniformLocation(program, "uEdgeBoost")),
-          invert(glGetUniformLocation(program, "uInvert")),
+          symbolVariation(glGetUniformLocation(program, "uSymbolVariation")),
+          invert(glGetUniformLocation(program, "uInvert")) {}
+};
+
+struct AsciiUniforms {
+    GLint symbolMap;
+    GLint cellSize;
+    GLint glyphSpacing;
+    GLint glyphBlur;
+    GLint backgroundColor;
+
+    explicit AsciiUniforms(GLuint program)
+        : symbolMap(glGetUniformLocation(program, "uSymbolMap")),
+          cellSize(glGetUniformLocation(program, "uCellSize")),
+          glyphSpacing(glGetUniformLocation(program, "uGlyphSpacing")),
+          glyphBlur(glGetUniformLocation(program, "uGlyphBlur")),
           backgroundColor(glGetUniformLocation(program, "uBackgroundColor")) {}
 };
 
@@ -222,9 +256,10 @@ const char* glyphName(int set) {
 
 void updateWindowTitle(GLFWwindow* window, const Settings& settings) {
     std::ostringstream title;
-    title << "3D ASCII Preview | " << shapeName(settings.shape)
+    title << "3D Symbol Preview | " << shapeName(settings.shape)
           << " | " << colorName(settings.colorMode)
           << " | " << glyphName(settings.glyphSet)
+          << " | match " << settings.sampleScale << "x" << settings.sampleScale
           << " | cell " << static_cast<int>(settings.cellSize) << "px"
           << " | exposure " << settings.exposure
           << (settings.paused ? " | PAUSED" : "");
@@ -263,6 +298,9 @@ void keyCallback(GLFWwindow* window, int key, int, int action, int) {
         case GLFW_KEY_G:
             settings->glyphSet = (settings->glyphSet + 1) % 3;
             break;
+        case GLFW_KEY_Q:
+            settings->sampleScale = settings->sampleScale == 2 ? 3 : 2;
+            break;
         case GLFW_KEY_LEFT_BRACKET:
             settings->cellSize = std::max(6.0f, settings->cellSize - 1.0f);
             break;
@@ -300,7 +338,14 @@ void keyCallback(GLFWwindow* window, int key, int, int action, int) {
     }
 }
 
-void createSceneTargets(Resources& resources, int width, int height) {
+void createSceneTargets(
+    Resources& resources,
+    int sceneWidth,
+    int sceneHeight,
+    int gridWidth,
+    int gridHeight,
+    int sampleScale
+) {
     if (resources.sceneTextures[0] != 0 || resources.sceneTextures[1] != 0) {
         glDeleteTextures(2, resources.sceneTextures.data());
         resources.sceneTextures = {0, 0};
@@ -319,8 +364,8 @@ void createSceneTargets(Resources& resources, int width, int height) {
             GL_TEXTURE_2D,
             0,
             GL_RGBA16F,
-            width,
-            height,
+            sceneWidth,
+            sceneHeight,
             0,
             GL_RGBA,
             GL_FLOAT,
@@ -339,24 +384,71 @@ void createSceneTargets(Resources& resources, int width, int height) {
         );
     }
 
-    const std::array<GLenum, 2> drawBuffers{
+    const std::array<GLenum, 2> sceneDrawBuffers{
         GL_COLOR_ATTACHMENT0,
         GL_COLOR_ATTACHMENT1
     };
-    glDrawBuffers(static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
+    glDrawBuffers(static_cast<GLsizei>(sceneDrawBuffers.size()), sceneDrawBuffers.data());
 
-    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         std::ostringstream message;
         message << "Scene framebuffer is incomplete (status 0x"
                 << std::hex << status << ").";
         throw std::runtime_error(message.str());
     }
 
-    resources.gridWidth = width;
-    resources.gridHeight = height;
+    if (resources.symbolFramebuffer == 0) {
+        glGenFramebuffers(1, &resources.symbolFramebuffer);
+    }
+    if (resources.symbolTexture != 0) {
+        glDeleteTextures(1, &resources.symbolTexture);
+        resources.symbolTexture = 0;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, resources.symbolFramebuffer);
+    glGenTextures(1, &resources.symbolTexture);
+    glBindTexture(GL_TEXTURE_2D, resources.symbolTexture);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA16F,
+        gridWidth,
+        gridHeight,
+        0,
+        GL_RGBA,
+        GL_FLOAT,
+        nullptr
+    );
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(
+        GL_FRAMEBUFFER,
+        GL_COLOR_ATTACHMENT0,
+        GL_TEXTURE_2D,
+        resources.symbolTexture,
+        0
+    );
+
+    const GLenum symbolDrawBuffer = GL_COLOR_ATTACHMENT0;
+    glDrawBuffers(1, &symbolDrawBuffer);
+    status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        std::ostringstream message;
+        message << "Symbol framebuffer is incomplete (status 0x"
+                << std::hex << status << ").";
+        throw std::runtime_error(message.str());
+    }
+
+    resources.gridWidth = gridWidth;
+    resources.gridHeight = gridHeight;
+    resources.sampleWidth = sceneWidth;
+    resources.sampleHeight = sceneHeight;
+    resources.sampleScale = sampleScale;
 }
 
 } // namespace
@@ -378,7 +470,7 @@ int main(int argc, char** argv) {
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 #endif
 
-        window = glfwCreateWindow(1280, 800, "3D ASCII Preview", nullptr, nullptr);
+        window = glfwCreateWindow(1280, 800, "3D Symbol Preview", nullptr, nullptr);
         if (window == nullptr) {
             throw std::runtime_error("Could not create an OpenGL 3.3 window.");
         }
@@ -411,6 +503,10 @@ int main(int argc, char** argv) {
                 shaderDirectory / "fullscreen.vert",
                 shaderDirectory / "ascii3d_scene.frag"
             );
+            resources.symbolProgram = createProgram(
+                shaderDirectory / "fullscreen.vert",
+                shaderDirectory / "symbol_select.frag"
+            );
             resources.asciiProgram = createProgram(
                 shaderDirectory / "fullscreen.vert",
                 shaderDirectory / "ascii3d.frag"
@@ -420,6 +516,7 @@ int main(int argc, char** argv) {
             glBindVertexArray(resources.vertexArray);
 
             const SceneUniforms sceneUniforms(resources.sceneProgram);
+            const SymbolUniforms symbolUniforms(resources.symbolProgram);
             const AsciiUniforms asciiUniforms(resources.asciiProgram);
 
             double previousTime = glfwGetTime();
@@ -453,14 +550,27 @@ int main(int argc, char** argv) {
                     static_cast<int>(std::ceil(outputHeight / (settings.cellSize * 1.4f)))
                 );
 
-                if (gridWidth != resources.gridWidth || gridHeight != resources.gridHeight) {
-                    createSceneTargets(resources, gridWidth, gridHeight);
+                const int sceneWidth = gridWidth * settings.sampleScale;
+                const int sceneHeight = gridHeight * settings.sampleScale;
+                if (
+                    gridWidth != resources.gridWidth ||
+                    gridHeight != resources.gridHeight ||
+                    settings.sampleScale != resources.sampleScale
+                ) {
+                    createSceneTargets(
+                        resources,
+                        sceneWidth,
+                        sceneHeight,
+                        gridWidth,
+                        gridHeight,
+                        settings.sampleScale
+                    );
                 }
 
                 glBindVertexArray(resources.vertexArray);
 
                 glBindFramebuffer(GL_FRAMEBUFFER, resources.sceneFramebuffer);
-                glViewport(0, 0, resources.gridWidth, resources.gridHeight);
+                glViewport(0, 0, resources.sampleWidth, resources.sampleHeight);
                 glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
                 glClear(GL_COLOR_BUFFER_BIT);
 
@@ -472,10 +582,11 @@ int main(int argc, char** argv) {
                 );
                 glUniform2f(
                     sceneUniforms.gridResolution,
-                    static_cast<float>(resources.gridWidth),
-                    static_cast<float>(resources.gridHeight)
+                    static_cast<float>(resources.sampleWidth),
+                    static_cast<float>(resources.sampleHeight)
                 );
                 glUniform1f(sceneUniforms.cellSize, settings.cellSize);
+                glUniform1i(sceneUniforms.sampleScale, settings.sampleScale);
                 glUniform1f(sceneUniforms.time, static_cast<float>(sceneTime));
                 glUniform1f(sceneUniforms.cameraDistance, 5.2f);
                 glUniform1f(sceneUniforms.rotationSpeed, 0.55f);
@@ -487,6 +598,28 @@ int main(int argc, char** argv) {
                 glUniform1f(sceneUniforms.fog, 0.0f);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
 
+                glBindFramebuffer(GL_FRAMEBUFFER, resources.symbolFramebuffer);
+                glViewport(0, 0, resources.gridWidth, resources.gridHeight);
+                glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+                glClear(GL_COLOR_BUFFER_BIT);
+
+                glUseProgram(resources.symbolProgram);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, resources.sceneTextures[0]);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, resources.sceneTextures[1]);
+                glUniform1i(symbolUniforms.sceneColor, 0);
+                glUniform1i(symbolUniforms.sceneNormal, 1);
+                glUniform1i(symbolUniforms.sampleScale, settings.sampleScale);
+                glUniform1i(symbolUniforms.colorMode, settings.colorMode);
+                glUniform1i(symbolUniforms.glyphSet, settings.glyphSet);
+                glUniform1f(symbolUniforms.exposure, settings.exposure);
+                glUniform1f(symbolUniforms.contrast, settings.contrast);
+                glUniform1f(symbolUniforms.edgeBoost, settings.edgeBoost);
+                glUniform1f(symbolUniforms.symbolVariation, settings.symbolVariation);
+                glUniform1i(symbolUniforms.invert, settings.invert ? 1 : 0);
+                glDrawArrays(GL_TRIANGLES, 0, 3);
+
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
                 glViewport(0, 0, outputWidth, outputHeight);
                 glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -494,19 +627,11 @@ int main(int argc, char** argv) {
 
                 glUseProgram(resources.asciiProgram);
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, resources.sceneTextures[0]);
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, resources.sceneTextures[1]);
-
-                glUniform1i(asciiUniforms.sceneColor, 0);
-                glUniform1i(asciiUniforms.sceneNormal, 1);
+                glBindTexture(GL_TEXTURE_2D, resources.symbolTexture);
+                glUniform1i(asciiUniforms.symbolMap, 0);
                 glUniform1f(asciiUniforms.cellSize, settings.cellSize);
-                glUniform1i(asciiUniforms.colorMode, settings.colorMode);
-                glUniform1i(asciiUniforms.glyphSet, settings.glyphSet);
-                glUniform1f(asciiUniforms.exposure, settings.exposure);
-                glUniform1f(asciiUniforms.contrast, settings.contrast);
-                glUniform1f(asciiUniforms.edgeBoost, settings.edgeBoost);
-                glUniform1i(asciiUniforms.invert, settings.invert ? 1 : 0);
+                glUniform1f(asciiUniforms.glyphSpacing, 0.025f);
+                glUniform1f(asciiUniforms.glyphBlur, 0.45f);
                 glUniform3f(asciiUniforms.backgroundColor, 0.0f, 0.0f, 0.0f);
                 glDrawArrays(GL_TRIANGLES, 0, 3);
 
